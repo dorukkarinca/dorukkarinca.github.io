@@ -12,3 +12,5 @@ K. De Haan, H. Ceylan Koydemir, Y. Rivenson, D. Tseng, E. Van Dyne, L. Bakic, D.
 Ilango, E. Gumustekin, A. Ozcan, “Screening of sickle cell disease using a smartphone-based microscope and
 deep-learning,” SPIE Photonics West, Optics and Biophotonics in Low-Resource Settings VII, March 6-11,
 Virtual Conference, Paper # 11632-9
+
+https://spie.org/Publications/Proceedings/Paper/10.1117/12.2579425
