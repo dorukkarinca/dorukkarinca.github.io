@@ -5,7 +5,7 @@ permalink: /publication/2021-06-10-overcoming-difficulty-in-obtaining
 excerpt: 'Here we show a first attempt to overcome the lack of dark-skinned subjects in r-PPG datasets by synthetic augmentation.'
 date: 2021-06-10
 venue: 'arXiv preprint'
-paperurl: 'https://arxiv.org/abs/2010.12769'
+paperurl: 'https://arxiv.org/abs/2106.06007'
 citation: 'Y. Ba, Z. Wang, D. Karinca, O. D. Bozkurt, A. Kadambi, "Overcoming Difficulty in Obtaining Dark-skinned Subjects for Remote-PPG by Synthetic Augmentation," arXiv:2106.06007 (June 10, 2021)'
 ---
 
