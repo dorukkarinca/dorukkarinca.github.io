@@ -8,7 +8,7 @@ redirect_from:
   - /about.html
 ---
 
-I finished my MS in [Computer Science at UCLA](https://cs.ucla.edu). My research interests are computer vision and causality.
+I graduated with an MS in [Computer Science at UCLA](https://cs.ucla.edu). My background is in computer vision and I have an interest in *reasoning* AI (causality, knowledge representation, anything that is [system 2 learning](https://bdtechtalks.com/2019/12/23/yoshua-bengio-neurips-2019-deep-learning/)).
 
 Background
 ------
