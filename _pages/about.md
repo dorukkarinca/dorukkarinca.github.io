@@ -8,7 +8,7 @@ redirect_from:
   - /about.html
 ---
 
-I graduated with an MS in [Computer Science at UCLA](https://cs.ucla.edu). My background is in computer vision and I have an interest in *reasoning* AI (causality, knowledge representation, anything that is [system 2 learning](https://bdtechtalks.com/2019/12/23/yoshua-bengio-neurips-2019-deep-learning/)).
+I graduated with an MS in [Computer Science at UCLA](https://cs.ucla.edu) supervised by [Achuta Kadambi](https://visual.ee.ucla.edu). My background is in computer vision and I have an interest in *reasoning* AI (causality, knowledge representation, anything that is [system 2 learning](https://bdtechtalks.com/2019/12/23/yoshua-bengio-neurips-2019-deep-learning/)).
 
 Check out my [open-source Keras-wrapper](https://github.com/dorukkarinca/keras-buoy) for auto-saving training progress and metrics.
 
