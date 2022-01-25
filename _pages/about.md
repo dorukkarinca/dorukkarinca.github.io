@@ -8,12 +8,12 @@ redirect_from:
   - /about.html
 ---
 
-I graduated with an MS in [Computer Science at UCLA](https://cs.ucla.edu) supervised by [Achuta Kadambi](https://visual.ee.ucla.edu). My background is in computer vision and I have an interest in *reasoning* AI (causality, knowledge representation, anything that is [system 2 learning](https://bdtechtalks.com/2019/12/23/yoshua-bengio-neurips-2019-deep-learning/)).
+I'm a Sr. Computer Vision Engineer at [Akasha Imaging](https://akasha.im). I graduated with an MS in [Computer Science at UCLA](https://cs.ucla.edu) supervised by [Achuta Kadambi](https://visual.ee.ucla.edu). My background is in imaging AI and I have an interest in *reasoning* AI (causality, knowledge representation, anything that is [system 2 learning](https://bdtechtalks.com/2019/12/23/yoshua-bengio-neurips-2019-deep-learning/)).
 
 Check out my [open-source Keras-wrapper](https://github.com/dorukkarinca/keras-buoy) for auto-saving training progress and metrics.
 
 Background
 ------
-I moved to California to obtain a BS in Computer Science and Engineering at UCLA (TED Ankara College prior to that). I stayed in the same department for my master's and am currently working on [generative synthetic dataset augmentation](https://dorukkarinca.com/publication/2021-06-10-overcoming-difficulty-in-obtaining) to improve remote heart rate detection.
+I moved to California to obtain a BS in Computer Science and Engineering at UCLA (TED Ankara College prior to that). I stayed in the same department for my master's and worked on [generative synthetic dataset augmentation](https://dorukkarinca.com/publication/2021-06-10-overcoming-difficulty-in-obtaining) to improve remote heart rate detection.
 
 The local part of my email address is dorukkarinca and the domain is https://cs.ucla.edu.
