@@ -1,127 +1,123 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://dorukkarinca.com/about.html</loc>
-    <lastmod>2023-02-23T20:49:51.324Z</lastmod>
-  </url>
-  <url>
     <loc>https://dorukkarinca.com/blog/2023-02-22-JAX-sharding.html</loc>
-    <lastmod>2023-02-23T20:49:54.154Z</lastmod>
+    <lastmod>2023-02-23T21:25:35.728Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/blog.html</loc>
-    <lastmod>2023-02-23T20:49:56.512Z</lastmod>
+    <lastmod>2023-02-23T21:25:36.574Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/cv.html</loc>
-    <lastmod>2023-02-23T20:49:57.565Z</lastmod>
+    <lastmod>2023-02-23T21:25:37.296Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/index.html</loc>
-    <lastmod>2023-02-23T20:49:58.557Z</lastmod>
+    <lastmod>2023-02-23T21:25:38.106Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2016-06-13-sickle-cell-detection.html</loc>
-    <lastmod>2023-02-23T20:49:59.402Z</lastmod>
+    <lastmod>2023-02-23T21:25:39.114Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2017-05-24-presentation-automated-detection-sickle.html</loc>
-    <lastmod>2023-02-23T20:50:00.282Z</lastmod>
+    <lastmod>2023-02-23T21:25:40.331Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2017-05-24-presentation-smartphone-based-sickle.html</loc>
-    <lastmod>2023-02-23T20:50:01.120Z</lastmod>
+    <lastmod>2023-02-23T21:25:41.230Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2018-05-14-presentation-bee-parasite-detection.html</loc>
-    <lastmod>2023-02-23T20:50:01.919Z</lastmod>
+    <lastmod>2023-02-23T21:25:42.047Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2018-05-22-presentation-bee-parasite-detection.html</loc>
-    <lastmod>2023-02-23T20:50:02.621Z</lastmod>
+    <lastmod>2023-02-23T21:25:42.799Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2018-10-17-turbidity-measurement.html</loc>
-    <lastmod>2023-02-23T20:50:03.581Z</lastmod>
+    <lastmod>2023-02-23T21:25:43.476Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2019-02-02-bee-parasite-detection.html</loc>
-    <lastmod>2023-02-23T20:50:04.680Z</lastmod>
+    <lastmod>2023-02-23T21:25:44.141Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2019-06-27-detection-of-nosema.html</loc>
-    <lastmod>2023-02-23T20:50:05.876Z</lastmod>
+    <lastmod>2023-02-23T21:25:44.874Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2019-06-27-field-portable-turbidity-reader.html</loc>
-    <lastmod>2023-02-23T20:50:07.165Z</lastmod>
+    <lastmod>2023-02-23T21:25:45.524Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2019-10-16-rapid-and-automated-detection-of-nosema.html</loc>
-    <lastmod>2023-02-23T20:50:08.076Z</lastmod>
+    <lastmod>2023-02-23T21:25:46.272Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2019-10-16-water-quality-analysis.html</loc>
-    <lastmod>2023-02-23T20:50:08.975Z</lastmod>
+    <lastmod>2023-02-23T21:25:46.958Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2020-02-01-turbidity-analysis.html</loc>
-    <lastmod>2023-02-23T20:50:10.158Z</lastmod>
+    <lastmod>2023-02-23T21:25:47.689Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2020-05-11-automated-screening-of-sickle-cells.html</loc>
-    <lastmod>2023-02-23T20:50:11.114Z</lastmod>
+    <lastmod>2023-02-23T21:25:48.382Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2020-08-24-sickle-cell-screening.html</loc>
-    <lastmod>2023-02-23T20:50:12.503Z</lastmod>
+    <lastmod>2023-02-23T21:25:49.119Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations/2021-03-05-sickle-cell-screening.html</loc>
-    <lastmod>2023-02-23T20:50:13.450Z</lastmod>
+    <lastmod>2023-02-23T21:25:49.892Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/presentations.html</loc>
-    <lastmod>2023-02-23T20:50:16.422Z</lastmod>
+    <lastmod>2023-02-23T21:25:51.152Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/publications/2019-01-28-nosema-ceranae-detection.html</loc>
-    <lastmod>2023-02-23T20:50:17.984Z</lastmod>
+    <lastmod>2023-02-23T21:25:51.979Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/publications/2019-12-27-smartphone-based-turbidity-reader.html</loc>
-    <lastmod>2023-02-23T20:50:18.831Z</lastmod>
+    <lastmod>2023-02-23T21:25:52.766Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/publications/2020-05-22-automated-screening-of-sickle-cells.html</loc>
-    <lastmod>2023-02-23T20:50:19.612Z</lastmod>
+    <lastmod>2023-02-23T21:25:53.505Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/publications/2020-08-12-sensing-of-electrolytes.html</loc>
-    <lastmod>2023-02-23T20:50:20.297Z</lastmod>
+    <lastmod>2023-02-23T21:25:54.237Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/publications/2020-12-09-diverse-rppg-camera-based.html</loc>
-    <lastmod>2023-02-23T20:50:21.135Z</lastmod>
+    <lastmod>2023-02-23T21:25:55.017Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/publications/2021-06-10-overcoming-difficulty-in-obtaining.html</loc>
-    <lastmod>2023-02-23T20:50:22.231Z</lastmod>
+    <lastmod>2023-02-23T21:25:55.705Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/publications.html</loc>
-    <lastmod>2023-02-23T20:50:23.446Z</lastmod>
+    <lastmod>2023-02-23T21:25:56.613Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/teaching/2020-fall-cs130.html</loc>
-    <lastmod>2023-02-23T20:50:24.499Z</lastmod>
+    <lastmod>2023-02-23T21:25:57.332Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/teaching/2020-spring-cs31.html</loc>
-    <lastmod>2023-02-23T20:50:25.541Z</lastmod>
+    <lastmod>2023-02-23T21:25:58.008Z</lastmod>
   </url>
   <url>
     <loc>https://dorukkarinca.com/teaching/2021-winter-cs130.html</loc>
-    <lastmod>2023-02-23T20:50:27.148Z</lastmod>
+    <lastmod>2023-02-23T21:25:58.737Z</lastmod>
   </url>
 </urlset>
