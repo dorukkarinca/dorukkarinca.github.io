@@ -1,0 +1,254 @@
+[
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "Doruk Karınca",
+    "section": "",
+    "text": "I was a Sr. Computer Vision Engineer at Intrinsic and at Akasha Imaging before Intrinsic acquired it. Before that, I graduated with an MS in Computer Science at UCLA supervised by Achuta Kadambi. My background is in computational imaging and I have an interest in reasoning AI (causality, knowledge representation, anything that is system 2 learning).\nCheck out my open-source Keras-wrapper for auto-saving training progress and metrics."
+  },
+  {
+    "objectID": "about.html#background",
+    "href": "about.html#background",
+    "title": "Doruk Karınca",
+    "section": "Background",
+    "text": "Background\nI moved to California to obtain a BS in Computer Science and Engineering at UCLA (TED Ankara College prior to that). I stayed in the same department for my master’s and worked on generative synthetic dataset augmentation to improve remote heart rate detection.\nThe local part of my email address is dorukkarinca and the domain is https://cs.ucla.edu."
+  },
+  {
+    "objectID": "blog/2023-02-22-JAX-sharding.html",
+    "href": "blog/2023-02-22-JAX-sharding.html",
+    "title": "How to split a large model on Colab TPUs",
+    "section": "",
+    "text": "Google Colab has been an amazing tool for trying out new ML ideas. While pipelines are written on PyTorch or TensorFlow with GPU support, I’ve been recently interested in Colab’s TPU accelerator offering and the JAX platform.\nColab offers 64 GiB of high-bandwidth memory with a TPUv2 version – a considerable jump in memory offering compared to Colab’s GPU instances. (More details about different TPU versions is available at Google Cloud.) Let’s see if we can run the full stable diffusion model by Runway with the HuggingFace backbone using the provided Jax + TPU support."
+  },
+  {
+    "objectID": "blog/2023-02-22-JAX-sharding.html#getting-started",
+    "href": "blog/2023-02-22-JAX-sharding.html#getting-started",
+    "title": "How to split a large model on Colab TPUs",
+    "section": "Getting started",
+    "text": "Getting started\nHuggingFace offers a convenient starting point for Jax + TPU:\nimport jax\nimport numpy as np\nfrom flax.jax_utils import replicate\nfrom flax.training.common_utils import shard\n\nfrom diffusers import FlaxStableDiffusionPipeline\n\ndtype = jnp.bfloat16\n\npipeline, params = FlaxStableDiffusionPipeline.from_pretrained(\n    \"runwayml/stable-diffusion-v1-5\", revision=\"bf16\", dtype=dtype, from_pt=True\n)\nprompt = \"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic\"\nprompt = [prompt] * jax.device_count()\nprompt_ids = pipeline.prepare_inputs(prompt)\n\np_params = replicate(params, devices=jax.devices()) # replicate adds a leading (1, ...) on each tensor\nprompt_ids = shard(prompt_ids)\n\ndef create_key(seed=0):\n    return jax.random.PRNGKey(seed)\n\nrng = create_key(0)\nrng = jax.random.split(rng, jax.device_count())\n\nimages = pipeline(prompt_ids, p_params, rng, jit=True)[0]\nimages = images.reshape((images.shape[0] * images.shape[1], ) + images.shape[-3:])\nimages = pipeline.numpy_to_pil(images)\n\ndef image_grid(imgs, rows, cols):\n    w,h = imgs[0].size\n    grid = Image.new('RGB', size=(cols*w, rows*h))\n    for i, img in enumerate(imgs): grid.paste(img, box=(i%cols*w, i//cols*h))\n    return grid\n  \nimage_grid(images, 2, 4)\nIt uses the replicate and shard utilities of Flax to make 8 copies of the model (one for each TPU device) and parallelize 8 instances of the forward pass. This fits into memory on the smaller, bfloat16 branch where the pipeline is initialized with revision=\"bf16\" and when the safety checker is turned off.\nHowever, this block of code runs out of TPU memory for either one of revision=\"bf16\" or revision=\"flax\".\nXlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 12582912 bytes in memory 0x0x0_HBM0; 12517376 bytes allocatable, 18661376 bytes available\nThe only way to get results is to reduce the total allocation size by disabling the safety checker.\nYou have passed `None` for safety_checker to disable its functionality in <class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'>. Note that this might lead to problems when using <class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'> and is not recommended.\nSome weights of the model checkpoint at stable-diffusion-v1-5/text_encoder were not used when initializing FlaxCLIPTextModel: {('text_model', 'embeddings', 'position_ids')}\n- This IS expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).\n- This IS NOT expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).\nYou have disabled the safety checker for <class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'> by passing `safety_checker=None`. Ensure that you abide to the conditions of the Stable Diffusion license and do not expose unfiltered results in services or applications open to the public. Both the diffusers team and Hugging Face strongly recommend to keep the safety filter enabled in all public facing circumstances, disabling it only for use-cases that involve analyzing network behavior or auditing its results. For more information, please have a look at [https://github.com/huggingface/diffusers/pull/254](https://github.com/huggingface/diffusers/pull/254) .\n\n\n\nStable diffusion output\n\n\nSince the safety checker runs separately from the U-Net, we could load the safety checker on the next TPU core with a small modification in the pipeline. This solves the problem for our specific case but is not generalizable for models that span more than one TPU device. Can we figure out a generalizable way of spreading tensors over multiple TPU devices and still support matrix operations across device borders?\nTo motivate this venture, we should keep in mind Colab is offering us a total 64 GiB of high-bandwidth memory spread over 8 devices (or 4 cores). The ability to split a model into multiple devices without making assumptions about the underlying deep learning architecture can be a nifty way to play around with large models with minimal effort."
+  },
+  {
+    "objectID": "blog/2023-02-22-JAX-sharding.html#jax-support-for-cross-device-programming",
+    "href": "blog/2023-02-22-JAX-sharding.html#jax-support-for-cross-device-programming",
+    "title": "How to split a large model on Colab TPUs",
+    "section": "JAX support for cross-device programming",
+    "text": "JAX support for cross-device programming\nJAX tells us if we have two tensors between devices A and B, matrix multiplication fails.\nkey = jax.random.PRNGKey(0)\na = jax.random.uniform(key, shape=(3,5))\nb = jax.random.uniform(key, shape=(5,3))\na = jax.device_put(a, device=jax.devices()[0])\nb = jax.device_put(b, device=jax.devices()[1])\na @ b\nValueError: primitive arguments must be colocated on the same device, got TPU_0(host=0,(0,0,0,0)), TPU_1(host=0,(0,0,0,1))\nThe most performance-conscious way to spread a matrix multiplication over two devices is to use JAX’s pjit library following its detailed official walkthrough. pjit, as of writing this post in February 2023, is an experimental library that optimizes your code with just-in-time compilation and works with a device mesh definition. This device mesh allows the user to spread selected steps of the computation graph across device slices with APIs like jax.lax.with_sharding_constraint. An even better tutorial shows clear diagrams that show how your matrix multiplication will be sharded for the constraints you impose. The paper mentioned tutorial has even provided an optimal sharding spec for the specific architecture.\nUnfortunately, Colab seems to run a legacy version of TPUv2 which does not have pjit support. This is also a warning at the top of the aforementioned walkthrough. Moreover, producing a PartitionSpec and adding jax.lax.with_sharding_constraint to individual steps of the computation graph is something that needs to be done manually and correctly for each different deep learning architecture, which wouldn’t make our solution generalizable. Fortunately, there’s one more thing to try which we find out after a bit of digging into the JAX API.\nAlthough jax.Array is the default the return type of most JAX operations, jax.device_put_sharded and jax.device_put_replicated return a special subtype called ShardedDeviceArray. and this particular type allows operations between devices. Let’s revisit our previous matrix multiplication a @ b, this time using jax.device_put_sharded:\nkey = jax.random.PRNGKey(0)\na = jax.random.uniform(key, shape=(3,5))\nb = jax.random.uniform(key, shape=(5,3))\na = jax.device_put_sharded([a], jax.devices()[0:1])\nb = jax.device_put_sharded([b], jax.devices()[1:2])\na[0] @ b[0]\nDeviceArray([[2.1039276 , 1.9485016 , 1.3808594 ],\n             [1.0550652 , 0.8924408 , 0.4976406 ],\n             [1.4164448 , 1.3743296 , 0.80164933]], dtype=float32)\nSo converting everything to this data type can be used to perform operations across devices. Neat!\nOne thing to note is that jax.device_put_sharded performs sharding across the first axis so we needed to add a leading (1, ...) to each array dimension in order to put whole tensors into a single device. If needed, we can zero-index out this extra dimension and we can also easily convert all tensors in a parameter pytree params:\njax.tree_util.tree_map(\n    lambda x: jax.device_put_sharded([x], devices=[random.choice(jax.devices())]),\n    params)\nDon’t worry, random.choice is there for dramatic effect! (though, for model sizes that do not push to the TPU limit it may work) Instead of randomly choosing the allocation device, it makes more intuitive sense to allocate related tensors physically close to each other by developing a clock algorithm that moves the target device pointer to the neighbor when we get close to capacity in the current device."
+  },
+  {
+    "objectID": "blog/2023-02-22-JAX-sharding.html#putting-it-all-together",
+    "href": "blog/2023-02-22-JAX-sharding.html#putting-it-all-together",
+    "title": "How to split a large model on Colab TPUs",
+    "section": "Putting it all together",
+    "text": "Putting it all together\nA small performance upgrade is needed on the pipeline side to make it work: while reading the PyTorch model off the disk and converting it into JAX, there’s a brief loading region where PyTorch and JAX weights are both referenced in RAM. This duplication of weights exhausts CPU memory before we can move things to the TPU. The quick solution is to keep overwriting the same state variable name during conversion so that only one copy of the weights is referenced. The garbage collector does the rest of the heavy-lifting:\nAround line 406, change\n\n    # Step 1: Get the pytorch file\n    pytorch_model_file = load_state_dict(model_file)\n    \n    # Step 2: Convert the weights\n    state = convert_pytorch_state_dict_to_flax(pytorch_model_file, model)\n\nwith \n\n    # Step 1: Get the pytorch file\n    state = load_state_dict(model_file)\n    \n    # Step 2: Convert the weights\n    state = convert_pytorch_state_dict_to_flax(state, model)\nFor personal convenicence, I cloned the weight repo (runwayml/stable-diffusion-v1-5) to my local relative Google Drive path so my pipeline calls read FlaxStableDiffusionPipeline.from_pretrained(\"stable-diffusion-v1-5\", ...) instead.\nMost importantly, let’s remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.\nWith all this in mind, here’s the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier. This still exhausts TPU memory:\n# single image, jitted and everything on single TPU with safety checker\n\nif \"/content/drive/MyDrive/projects/diffusers/src\" not in sys.path:\n  sys.path.append(\"/content/drive/MyDrive/projects/diffusers/src\")\nfrom diffusers import FlaxStableDiffusionPipeline\n\ndtype = jnp.bfloat16\n\npipeline, params = FlaxStableDiffusionPipeline.from_pretrained(\n    \"stable-diffusion-v1-5\", revision=\"flax\", dtype=dtype, from_pt=True\n)\nprint(\"pipeline loaded\")\nprompt = \"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic\"\nprompt = [prompt] * 1\nprompt_ids = pipeline.prepare_inputs(prompt)\n\np_params = replicate(params, devices=jax.devices()[2:3]) # replicate adds a leading (1, ...) on each tensor\nprompt_ids = prompt_ids.reshape((1, -1, *prompt_ids.shape[1:])) # fake shard(...)\n\ndef create_key(seed=0):\n    return jax.random.PRNGKey(seed)\nrng = create_key(0)\nrng = jax.random.split(rng, 1)\n\nimages = pipeline(prompt_ids, p_params, rng, jit=True)[0][0]\nimages = pipeline.numpy_to_pil(images)\n\ndef image_grid(imgs, rows, cols):\n    w,h = imgs[0].size\n    grid = Image.new('RGB', size=(cols*w, rows*h))\n    for i, img in enumerate(imgs): grid.paste(img, box=(i%cols*w, i//cols*h))\n    return grid\n\nimage_grid(images, 1, 1)\nXlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 1024 bytes in memory 0x0x0_HBM0; 0 bytes allocatable, 0 \nbytes available\nIf we keep everything the same but shard the model instead, we are in good shape:\n# single image, jitted, greedily sharded\n\nif \"/content/drive/MyDrive/projects/diffusers/src\" not in sys.path:\n  sys.path.append(\"/content/drive/MyDrive/projects/diffusers/src\")\nfrom diffusers import FlaxStableDiffusionPipeline\n\ndtype = jnp.bfloat16\n\npipeline, params = FlaxStableDiffusionPipeline.from_pretrained(\n    \"stable-diffusion-v1-5\", revision=\"flax\", dtype=dtype, from_pt=True,\n    safety_checker=None\n)\nprompt = \"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic\"\nprompt = [prompt] * 1\nprompt_ids = pipeline.prepare_inputs(prompt)\n\nprompt_ids = prompt_ids.reshape((1, -1, *prompt_ids.shape[1:])) # fake shard(...)\ncapacities = [4*1e9 for _ in range(len(jax.devices()[2:8]))] # I set it to 4 GB instead of 7.5 GB for extra safety and more aggressive sharding\ndistributor = TensorDistributor(devices=jax.devices()[2:8], capacities=capacities)\np_params = distributor.greedily_distribute_tensors(params, squeeze_first_axis=False) # the first axis aids in jitting\n\ndef create_key(seed=0):\n    return jax.random.PRNGKey(seed)\nrng = create_key(0)\nrng = jax.random.split(rng, 1)\n\nimages = pipeline(prompt_ids, p_params, rng, jit=True)[0][0]\nimages = pipeline.numpy_to_pil(images)\n\ndef image_grid(imgs, rows, cols):\n    w,h = imgs[0].size\n    grid = Image.new('RGB', size=(cols*w, rows*h))\n    for i, img in enumerate(imgs): grid.paste(img, box=(i%cols*w, i//cols*h))\n    return grid\n\nimage_grid(images, 1, 1)\nOutput: \nHere’s the definition of TensorDistributor, which is a wrapper for the tree_map shown earlier but it keeps a tally of TPU capacities to figure out where to allocate:\nclass TensorDistributor:\n  def __init__(self, devices, capacities):\n    assert len(devices) >= 1, \"At least one device is needed.\"\n    assert len(devices) == len(capacities), \"Devices and capacities must match.\"\n    self.devices, self.capacities = devices, capacities\n    self.idx = len(devices)-1 # index of current allocation device\n  \n  @staticmethod\n  def _move(tensor, device, squeeze_first_axis=False):\n    result = jax.device_put_sharded([tensor], devices=[device])\n    return result[0] if squeeze_first_axis else result\n\n  @staticmethod\n  def randomly_distribute_tensors(\n      params: frozen_dict.FrozenDict,\n      squeeze_first_axis=False,\n      devices=jax.devices()\n  ):\n      \"\"\"Spreads all tensors in `params` across jax.devices() randomly\n      \n      Args:\n          params (dict): Params dict for the network.\n      Returns:\n          new_params: A dictionary identical to params in structure, \n            except tensors are distributed to different devices.\n      \"\"\"\n\n      map = jax.tree_util.tree_map(\n              lambda x: TensorDistributor._move(x, random.choice(devices), \n                                                squeeze_first_axis),\n              params\n            )\n      return map\n\n  def _move_greedy(self, tensor, squeeze_first_axis=False):\n    tensor_size = tensor.nbytes\n    if self.capacities[self.idx] >= tensor_size:\n      self.capacities[self.idx] -= tensor_size\n      return TensorDistributor._move(tensor, self.devices[self.idx], \n                                     squeeze_first_axis)\n\n    # find a new device starting from the current device, allowing wrap-around\n    for i in range(self.idx-1, self.idx-1-len(self.devices), -1):\n      if i < 0:\n        i += len(self.devices) \n      if self.capacities[i] >= tensor_size:\n        self.idx = i\n        self.capacities[self.idx] -= tensor_size\n        return TensorDistributor._move(tensor, self.devices[self.idx],\n                                       squeeze_first_axis)\n    else:\n      raise Exception((f\"Failed to allocate {tensor.nbytes} bytes because the \"\n                       f\"devices have {self.capacities} bytes free.\"))\n  \n  def greedily_distribute_tensors(self,\n      params: frozen_dict.FrozenDict,\n      squeeze_first_axis=False\n  ):\n      \"\"\"Spreads all tensors in `params` across jax.devices() in device order, \n      respecting memory limits set forth by `self.capacity`.\n      \n      Args:\n          params (dict): Params dict for the network.\n      Returns:\n          new_params: A dictionary identical to params in structure, except\n            tensors are distributed to different devices.\n      \"\"\"\n      \n      map = jax.tree_util.tree_map(\n              lambda x: self._move_greedy(x, squeeze_first_axis),\n              params\n            )\n      return map\nDisclaimer: Feel free to use TensorDistributor according to the MIT License. No warranties are implied.\nWe could have avoided defining capacities if we had a function that returns the free memory in bytes i.e. something like torch.cuda.memory_reserved(0) - torch.cuda.memory_allocated(0) but for TPUs in JAX. However, the only way I could find to check free memory usage in JAX is to use a profiler which only outputs prof files. Not a big deal since hard-coding capacities seems to be sufficient for the purpose, and also gives the user intentional control over limiting memory consumption per TPU.\nHope you find this interesting and useful for supercharging your DL projects using TPUs!"
+  },
+  {
+    "objectID": "blog.html",
+    "href": "blog.html",
+    "title": "Blog",
+    "section": "",
+    "text": "How to split a large model on Colab TPUs\n\n\n\n\n\n\n\n\n\n\n\n\nFeb 22, 2023\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "cv.html",
+    "href": "cv.html",
+    "title": "CV",
+    "section": "",
+    "text": "Click here for a single-page resume (without research citations).\nClick here for a multi-page CV (with research citations)."
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Doruk Karınca",
+    "section": "",
+    "text": "I was a Sr. Computer Vision Engineer at Intrinsic and at Akasha Imaging before Intrinsic acquired it. Before that, I graduated with an MS in Computer Science at UCLA supervised by Achuta Kadambi. My background is in computational imaging and I have an interest in reasoning AI (causality, knowledge representation, anything that is system 2 learning).\nCheck out my open-source Keras-wrapper for auto-saving training progress and metrics."
+  },
+  {
+    "objectID": "index.html#background",
+    "href": "index.html#background",
+    "title": "Doruk Karınca",
+    "section": "Background",
+    "text": "Background\nI moved to California to obtain a BS in Computer Science and Engineering at UCLA (TED Ankara College prior to that). I stayed in the same department for my master’s and worked on generative synthetic dataset augmentation to improve remote heart rate detection.\nThe local part of my email address is dorukkarinca and the domain is https://cs.ucla.edu."
+  },
+  {
+    "objectID": "presentations/2016-06-13-sickle-cell-detection.html",
+    "href": "presentations/2016-06-13-sickle-cell-detection.html",
+    "title": "Sickle cell detection using a smartphone based transmission microscope",
+    "section": "",
+    "text": "H. Ceylan Koydemir, E. Van Dyne, D. Tseng, S. Feng, D. Karinca, K. Liang, R. Nadkarni, R. Varma, and A. Ozcan, “Sickle cell detection using a smartphone based transmission microscope”, 17th Annual UC Systemwide Bioengineering Symposium, June 13-15, 2016, University of California, San Francisco, CA, USA"
+  },
+  {
+    "objectID": "presentations/2017-05-24-presentation-automated-detection-sickle.html",
+    "href": "presentations/2017-05-24-presentation-automated-detection-sickle.html",
+    "title": "Automated detection and classification of sickle cells from whole blood using a smartphone based transmission microscope and machine learning",
+    "section": "",
+    "text": "D. Karinca, K. Liang, R. Nadkarni, R. Varma, H. Ceylan Koydemir, E. Van Dyne, D. Tseng, S.W. Feng, A. Ozcan, “Automated detection and classification of sickle cells from whole blood using a smartphone based transmission microscope and machine learning”, May 24, 2017, Undergraduate Research Week, UCLA"
+  },
+  {
+    "objectID": "presentations/2017-05-24-presentation-smartphone-based-sickle.html",
+    "href": "presentations/2017-05-24-presentation-smartphone-based-sickle.html",
+    "title": "A smartphone based microscope to detect sickle cell disease”",
+    "section": "",
+    "text": "D. Karinca, K. Liang, H. Ceylan Koydemir, D. Tseng, S. W.Feng, A. Ozcan, “A smartphone based microscope to detect sickle cell disease”, May 24, 2017, HHMI Day, UCLA"
+  },
+  {
+    "objectID": "presentations/2018-05-14-presentation-bee-parasite-detection.html",
+    "href": "presentations/2018-05-14-presentation-bee-parasite-detection.html",
+    "title": "Bee parasite detection using a smartphone based microscope",
+    "section": "",
+    "text": "D. Karinca, K. Liang, J. Snow, H. Ceylan Koydemir, D. Tseng, A. Ozcan, “Bee parasite detection using a smartphone based microscope”, May 14, 2018, HHMI Day, UCLA"
+  },
+  {
+    "objectID": "presentations/2018-05-22-presentation-bee-parasite-detection.html",
+    "href": "presentations/2018-05-22-presentation-bee-parasite-detection.html",
+    "title": "Bee parasite detection using a smartphone based microscope",
+    "section": "",
+    "text": "D. Karinca, K. Liang, J. Snow, H. Ceylan Koydemir, D. Tseng, A. Ozcan, “Bee parasite detection using a smartphone based microscope”, May 22, 2018, Undergraduate Research Week, UCLA"
+  },
+  {
+    "objectID": "presentations/2018-10-17-turbidity-measurement.html",
+    "href": "presentations/2018-10-17-turbidity-measurement.html",
+    "title": "Turbidity measurement using a smartphone",
+    "section": "",
+    "text": "S. Rajpal, H. Koydemir, Z. Gorocs, D. Karinca, A. Ozcan, “Turbidity measurement using a smartphone,” BMES (Biomedical Engineering Society) Annual Meeting, October 17–20, 2018, Atlanta, Georgia, USA"
+  },
+  {
+    "objectID": "presentations/2019-02-02-bee-parasite-detection.html",
+    "href": "presentations/2019-02-02-bee-parasite-detection.html",
+    "title": "Bee parasite detection using a smartphone",
+    "section": "",
+    "text": "H. Ceylan Koydemir, J. Snow, D. Karinca, K. Liang, D. Tseng, and A. Ozcan, “Bee parasite detection using a smartphone”, SPIE Photonics West 2019, Optics and Biophotonics in Low Resource Settings V, February 2-7, 2019, San Francisco, CA, USA"
+  },
+  {
+    "objectID": "presentations/2019-06-27-detection-of-nosema.html",
+    "href": "presentations/2019-06-27-detection-of-nosema.html",
+    "title": "Detection of Nosema ceranae in honey bees using a mobile microscope",
+    "section": "",
+    "text": "J. Snow, H. Ceylan Koydemir, D. Tseng, D. Karinca, K. Liang, and A. Ozcan, “Detection of Nosema ceranae in honey bees using a mobile microscope,” 20th Annual UC Systemwide Bioengineering Symposium, June 27-29, 2019, University of California, Merced, CA, USA"
+  },
+  {
+    "objectID": "presentations/2019-06-27-field-portable-turbidity-reader.html",
+    "href": "presentations/2019-06-27-field-portable-turbidity-reader.html",
+    "title": "Field portable smartphone based reader for turbidity analysis",
+    "section": "",
+    "text": "H. Ceylan Koydemir, S. Rajpal, E. Gumustekin, D. Karinca, K. Liang, Z. Gorocs, D. Tseng, and A. Ozcan, “Field portable smartphone based reader for turbidity analysis,” 20th Annual UC Systemwide Bioengineering Symposium, June 27-29, 2019, University of California, Merced, CA, USA"
+  },
+  {
+    "objectID": "presentations/2019-10-16-rapid-and-automated-detection-of-nosema.html",
+    "href": "presentations/2019-10-16-rapid-and-automated-detection-of-nosema.html",
+    "title": "Rapid and automated detection of Nosema infection in honey bees using a mobile microscope",
+    "section": "",
+    "text": "J. Snow, H. Ceylan Koydemir, D. Tseng, D. Karinca, K. Liang, and A. Ozcan, “Rapid and automated detection of Nosema infection in honey bees using a mobile microscope,” BMES (Biomedical Engineering Society) Annual Meeting, October 16-19, 2019, Philadelphia, Pennsylvania, USA"
+  },
+  {
+    "objectID": "presentations/2019-10-16-water-quality-analysis.html",
+    "href": "presentations/2019-10-16-water-quality-analysis.html",
+    "title": "Water quality analysis using a smartphone-based turbidity reader",
+    "section": "",
+    "text": "H. Ceylan Koydemir, S. Rajpal, E. Gumustekin, D. Karinca, K. Liang, Z. Gorocs, D. Tseng, and A. Ozcan, “Water quality analysis using a smartphone-based turbidity reader,” BMES (Biomedical Engineering Society) Annual Meeting, October 16-19, 2019, Philadelphia, Pennsylvania, USA"
+  },
+  {
+    "objectID": "presentations/2020-02-01-turbidity-analysis.html",
+    "href": "presentations/2020-02-01-turbidity-analysis.html",
+    "title": "Turbidity analysis using a smartphone-based reader",
+    "section": "",
+    "text": "H. Ceylan Koydemir, S. Rajpal, E. Gumustekin, D. Karinca, K. Liang, Z. Gorocs, D. Tseng, A. Ozcan, “Turbidity analysis using a smartphone-based reader”, SPIE Photonics West, Optics and Biophotonics in Low Resource Settings VI, February 1-6, 2020, San Francisco, CA, USA"
+  },
+  {
+    "objectID": "presentations/2020-05-11-automated-screening-of-sickle-cells.html",
+    "href": "presentations/2020-05-11-automated-screening-of-sickle-cells.html",
+    "title": "Automated Screening of Sickle Cells Using a Smartphone-Based Microscope and Deep Learning",
+    "section": "",
+    "text": "K. de Haan, H. Ceylan Koydemir, Y. Rivenson, D. Tseng, E. Van Dyne, L. Bakic, D. Karinca, K. Liang, M. Ilango, E. Gumustekin, A. Ozcan, “Automated Screening of Sickle Cells Using a Smartphone-Based Microscope and Deep Learning,” OSA Conference on Lasers and Electrooptics (CLEO), May 11-15, 2020, Virtual Conference"
+  },
+  {
+    "objectID": "presentations/2020-08-24-sickle-cell-screening.html",
+    "href": "presentations/2020-08-24-sickle-cell-screening.html",
+    "title": "Sickle cell disease screening from thin blood smears using a smartphone-based microscope and deep learning",
+    "section": "",
+    "text": "K. de Haan, H.C. Koydemir, Y. Rivenson, D. Tseng, E. Van Dyne, L. Bakic, D. Karinca, K. Liang, M. Ilango, E. Gumustekin, A. Ozcan, “Sickle cell disease screening from thin blood smears using a smartphone-based microscope and deep learning,” SPIE Optics and Photonics Conference, August 24-28, 2020, Virtual Conference, Paper # 11469-54"
+  },
+  {
+    "objectID": "presentations/2021-03-05-sickle-cell-screening.html",
+    "href": "presentations/2021-03-05-sickle-cell-screening.html",
+    "title": "Screening of sickle cell disease using a smartphone-based microscope and deep-learning",
+    "section": "",
+    "text": "K. De Haan, H. Ceylan Koydemir, Y. Rivenson, D. Tseng, E. Van Dyne, L. Bakic, D. Karinca, K. Liang, M. Ilango, E. Gumustekin, A. Ozcan, “Screening of sickle cell disease using a smartphone-based microscope and deep-learning,” SPIE Photonics West, Optics and Biophotonics in Low-Resource Settings VII, March 6-11, Virtual Conference, Paper # 11632-9\nhttps://spie.org/Publications/Proceedings/Paper/10.1117/12.2579425"
+  },
+  {
+    "objectID": "presentations.html",
+    "href": "presentations.html",
+    "title": "Presentations",
+    "section": "",
+    "text": "Screening of sickle cell disease using a smartphone-based microscope and deep-learning\n\n\n\n\n\n\n\n\n\n\n\n\nMar 5, 2021\n\n\n\n\n\n\n\n\nSickle cell disease screening from thin blood smears using a smartphone-based microscope and deep learning\n\n\n\n\n\n\n\n\n\n\n\n\nAug 24, 2020\n\n\n\n\n\n\n\n\nAutomated Screening of Sickle Cells Using a Smartphone-Based Microscope and Deep Learning\n\n\n\n\n\n\n\n\n\n\n\n\nMay 11, 2020\n\n\n\n\n\n\n\n\nTurbidity analysis using a smartphone-based reader\n\n\n\n\n\n\n\n\n\n\n\n\nFeb 1, 2020\n\n\n\n\n\n\n\n\nRapid and automated detection of Nosema infection in honey bees using a mobile microscope\n\n\n\n\n\n\n\n\n\n\n\n\nOct 16, 2019\n\n\n\n\n\n\n\n\nWater quality analysis using a smartphone-based turbidity reader\n\n\n\n\n\n\n\n\n\n\n\n\nOct 16, 2019\n\n\n\n\n\n\n\n\nDetection of Nosema ceranae in honey bees using a mobile microscope\n\n\n\n\n\n\n\n\n\n\n\n\nJun 27, 2019\n\n\n\n\n\n\n\n\nField portable smartphone based reader for turbidity analysis\n\n\n\n\n\n\n\n\n\n\n\n\n\nJun 27, 2019\n\n\n\n\n\n\n\n\nBee parasite detection using a smartphone\n\n\n\n\n\n\n\n\n\n\n\n\nFeb 2, 2019\n\n\n\n\n\n\n\n\nTurbidity measurement using a smartphone\n\n\n\n\n\n\n\n\n\n\n\n\nOct 17, 2018\n\n\n\n\n\n\n\n\nBee parasite detection using a smartphone based microscope\n\n\n\n\n\n\n\n\n\n\n\n\nMay 22, 2018\n\n\n\n\n\n\n\n\nBee parasite detection using a smartphone based microscope\n\n\n\n\n\n\n\n\n\n\n\n\nMay 14, 2018\n\n\n\n\n\n\n\n\nAutomated detection and classification of sickle cells from whole blood using a smartphone based transmission microscope and machine learning\n\n\n\n\n\n\n\n\n\n\n\n\nMay 24, 2017\n\n\n\n\n\n\n\n\nA smartphone based microscope to detect sickle cell disease”\n\n\n\n\n\n\n\n\n\n\n\n\nMay 24, 2017\n\n\n\n\n\n\n\n\nSickle cell detection using a smartphone based transmission microscope\n\n\n\n\n\n\n\n\n\n\n\n\nJun 13, 2016\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "publications/2019-01-28-nosema-ceranae-detection.html",
+    "href": "publications/2019-01-28-nosema-ceranae-detection.html",
+    "title": "Rapid imaging, detection, and quantification of Nosema ceranae spores in honey bees using mobile phone-based fluorescence microscopy",
+    "section": "",
+    "text": "Recent declines in honey bee colonies in the United States have put increased strain on agricultural pollination. Nosema ceranae and Nosema apis, are microsporidian parasites that are highly pathogenic to honey bees and have been implicated as a factor in honey bee losses. While traditional methods for quantifying Nosema infection have high sensitivity and specificity, there is no field-portable device for field measurements by beekeepers. Here we present a field-portable and cost-effective smartphone-based platform for detection and quantification of chitin-positive Nosema spores in honey bees. The handheld platform, weighing only 374 g, consists of a smartphone-based fluorescence microscope, a custom-developed smartphone application, and an easy to perform sample preparation protocol. We tested the performance of the platform using samples at different parasite concentrations and compared the method with manual microscopic counts and qPCR quantification. We demonstrated that this device provides results that are comparable with other methods, having a limit of detection of 0.5 × 106 spores per bee. Thus, the assay can easily identify infected colonies and provide accurate quantification of infection levels requiring treatment of infection, suggesting that this method is potentially adaptable for diagnosis of Nosema infection in the field by beekeepers. Coupled with treatment recommendations, this protocol and smartphone-based optical platform could improve the diagnosis and treatment of nosemosis in bees and provide a powerful proof-of-principle for the use of such mobile diagnostics as useful analytical tools for beekeepers in resource-limited settings.\nDownload paper here\n\nCitation\nSnow, Jonathan W., Hatice Ceylan Koydemir, Doruk Kerim Karinca, Kyle Liangus, Derek Tseng, and Aydogan Ozcan. “Rapid imaging, detection, and quantification of Nosema ceranae spores in honey bees using mobile phone-based fluorescence microscopy.” Lab on a Chip, January 28, 2019"
+  },
+  {
+    "objectID": "publications/2019-12-27-smartphone-based-turbidity-reader.html",
+    "href": "publications/2019-12-27-smartphone-based-turbidity-reader.html",
+    "title": "Smartphone-based turbidity reader",
+    "section": "",
+    "text": "Water quality is undergoing significant deterioration due to bacteria, pollutants and other harmful particles, damaging aquatic life and lowering the quality of drinking water. It is, therefore, important to be able to rapidly and accurately measure water quality in a cost-effective manner using e.g., a turbidimeter. Turbidimeters typically use different illumination angles to measure the scattering and transmittance of light through a sample and translate these readings into a measurement based on the standard nephelometric turbidity unit (NTU). Traditional turbidimeters have high sensitivity and specificity, but they are not field-portable and require electricity to operate in field settings. Here we present a field-portable and cost effective turbidimeter that is based on a smartphone. This mobile turbidimeter contains an opto-mechanical attachment coupled to the rear camera of the smartphone, which contains two white light-emitting-diodes to illuminate the water sample, optical fibers to transmit the light collected from the sample to the camera, an external lens for image formation, and diffusers for uniform illumination of the sample. Including the smartphone, this cost-effective device weighs only ~350 g. In our mobile turbidimeter design, we combined two illumination approaches: transmittance, in which the optical fibers were placed directly below the sample cuvette at 180° with respect to the light source, and nephelometry in which the optical fibers were placed on the sides of the sample cuvette at a 90° angle with respect to the to the light source. Images of the end facets of these fiber optic cables were captured using the smart phone and processed using a custom written image processing algorithm to automatically quantify the turbidity of each sample. Using transmittance and nephelometric readings, our mobile turbidimeter achieved accurate measurements over a large dynamic range, from 0.3 NTU to 2000 NTU. The accurate performance of our smartphone-based turbidimeter was also confirmed with various water samples collected in Los Angeles (USA), bacteria spiked water samples, as well as diesel fuel contaminated water samples. Having a detection limit of ~0.3 NTU, this cost-effective smartphone-based turbidimeter can be a useful analytical tool for screening of water quality in resource limited settings.\nDownload paper here\n\nCitation\nH.C. Koydemir, S. Rajpal, E. Gumustekin, D. Karinca, K. Liang, Z. Gorocs, D. Tseng, and A. Ozcan, “Smartphone-based turbidity reader,” Scientific Reports DOI: 10.1038/s41598-019- 56474-z (December 27, 2019)"
+  },
+  {
+    "objectID": "publications/2020-05-22-automated-screening-of-sickle-cells.html",
+    "href": "publications/2020-05-22-automated-screening-of-sickle-cells.html",
+    "title": "Automated screening of sickle cells using a smartphone-based microscope and deep learning",
+    "section": "",
+    "text": "Sickle cell disease (SCD) is a major public health priority throughout much of the world, affecting millions of people. In many regions, particularly those in resource-limited settings, SCD is not consistently diagnosed. In Africa, where the majority of SCD patients reside, more than 50% of the 0.2–0.3 million children born with SCD each year will die from it; many of these deaths are in fact preventable with correct diagnosis and treatment. Here, we present a deep learning framework which can perform automatic screening of sickle cells in blood smears using a smartphone microscope. This framework uses two distinct, complementary deep neural networks. The first neural network enhances and standardizes the blood smear images captured by the smartphone microscope, spatially and spectrally matching the image quality of a laboratory-grade benchtop microscope. The second network acts on the output of the first image enhancement neural network and is used to perform the semantic segmentation between healthy and sickle cells within a blood smear. These segmented images are then used to rapidly determine the SCD diagnosis per patient. We blindly tested this mobile sickle cell detection method using blood smears from 96 unique patients (including 32 SCD patients) that were imaged by our smartphone microscope, and achieved ~98% accuracy, with an area-under-the-curve of 0.998. With its high accuracy, this mobile and cost-effective method has the potential to be used as a screening tool for SCD and other blood cell disorders in resource-limited settings.\nDownload paper here\n\nCitation\nK. de Haan, H.C. Koydemir, Y. Rivenson, D. Tseng, E. Van Dyne, L.S. Bakic, D. Karinca, K. Liang, M. Ilango, E. Gumustekin, and A. Ozcan, “Automated screening of sickle cells using a smartphone-based microscope and deep learning,” npj Digital Medicine DOI: 10.1038/s41746- 020-0282-y (May 22, 2020)"
+  },
+  {
+    "objectID": "publications/2020-08-12-sensing-of-electrolytes.html",
+    "href": "publications/2020-08-12-sensing-of-electrolytes.html",
+    "title": "Sensing of electrolytes in urine using a miniaturized paper-based device",
+    "section": "",
+    "text": "Analyzing electrolytes in urine, such as sodium, potassium, calcium, chloride, and nitrite, has significant diagnostic value in detecting various conditions, such as kidney disorder, urinary stone disease, urinary tract infection, and cystic fibrosis. Ideally, by regularly monitoring these ions with the convenience of dipsticks and portable tools, such as cellphones, informed decision making is possible to control the consumption of these ions. Here, we report a paper-based sensor for measuring the concentration of sodium, potassium, calcium, chloride, and nitrite in urine, accurately quantified using a smartphone-enabled platform. By testing the device with both Tris buffer and artificial urine containing a wide range of electrolyte concentrations, we demonstrate that the proposed device can be used for detecting potassium, calcium, chloride, and nitrite within the whole physiological range of concentrations, and for binary quantification of sodium concentration.\nDownload paper here\n\nCitation\nF. Ghaderinezhad, H.C. Koydemir, D. Tseng, D. Karinca, K. Liang, A. Ozcan, and S. Tasoglu, “Sensing of electrolytes in urine using a miniaturized paper-based device,” Scientific Reports DOI: 10.1038/s41598-020-70456-6 (August 12, 2020)."
+  },
+  {
+    "objectID": "publications/2020-12-09-diverse-rppg-camera-based.html",
+    "href": "publications/2020-12-09-diverse-rppg-camera-based.html",
+    "title": "Diverse R-PPG: Camera-Based Heart Rate Estimation for Diverse Subject Skin-Tones and Scenes",
+    "section": "",
+    "text": "Heart rate (HR) is an essential clinical measure for the assessment of cardiorespiratory instability. Since communities of color are disproportionately affected by both COVID-19 and cardiovascular disease, there is a pressing need to deploy contactless HR sensing solutions for high-quality telemedicine evaluations. Existing computer vision methods that estimate HR from facial videos exhibit biased performance against dark skin tones. We present a novel physics-driven algorithm that boosts performance on darker skin tones in our reported data. We assess the performance of our method through the creation of the first telemedicine-focused remote vital signs dataset, the VITAL dataset. 432 videos (~864 minutes) of 54 subjects with diverse skin tones are recorded under realistic scene conditions with corresponding vital sign data. Our method reduces errors due to lighting changes, shadows, and specular highlights and imparts unbiased performance gains across skin tones, setting the stage for making medically inclusive non-contact HR sensing technologies a viable reality for patients of all skin tones.\nDownload paper here\n\nCitation\nP. Chari, K. Kabra, D. Karinca, S. Lahiri, D. Srivastava, K. Kulkarni, T. Chen, M. Cannesson, L. Jalilian, A. Kadambi, “Diverse R-PPG: Camera-Based Heart Rate Estimation for Diverse Subject Skin-Tones and Scenes,” arXiv:2010.12769 (December 9, 2021)"
+  },
+  {
+    "objectID": "publications/2021-06-10-overcoming-difficulty-in-obtaining.html",
+    "href": "publications/2021-06-10-overcoming-difficulty-in-obtaining.html",
+    "title": "Overcoming Difficulty in Obtaining Dark-skinned Subjects for Remote-PPG by Synthetic Augmentation",
+    "section": "",
+    "text": "Camera-based remote photoplethysmography (rPPG) provides a non-contact way to measure physiological signals (e.g., heart rate) using facial videos. Recent deep learning architectures have improved the accuracy of such physiological measurement significantly, yet they are restricted by the diversity of the annotated videos. The existing datasets MMSE-HR, AFRL, and UBFC-RPPG contain roughly 10%, 0%, and 5% of dark-skinned subjects respectively. The unbalanced training sets result in a poor generalization capability to unseen subjects and lead to unwanted bias toward different demographic groups. In Western academia, it is regrettably difficult in a university setting to collect data on these dark-skinned subjects. Here we show a first attempt to overcome the lack of dark-skinned subjects by synthetic augmentation. A joint optimization framework is utilized to translate real videos from light-skinned subjects to dark skin tones while retaining their pulsatile signals. In the experiment, our method exhibits around 31% reduction in mean absolute error for the dark-skinned group and 46% improvement on bias mitigation for all the groups, as compared with the previous work trained with just real samples.\nDownload paper here\n\nCitation\nY. Ba, Z. Wang, D. Karinca, O. D. Bozkurt, A. Kadambi, “Overcoming Difficulty in Obtaining Dark-skinned Subjects for Remote-PPG by Synthetic Augmentation,” arXiv:2106.06007 (June 10, 2021)"
+  },
+  {
+    "objectID": "publications.html",
+    "href": "publications.html",
+    "title": "Publications",
+    "section": "",
+    "text": "Overcoming Difficulty in Obtaining Dark-skinned Subjects for Remote-PPG by Synthetic Augmentation\n\n\n\n\n\n\n\n\n\n\n\n\nJun 10, 2021\n\n\n\n\n\n\n\n\nDiverse R-PPG: Camera-Based Heart Rate Estimation for Diverse Subject Skin-Tones and Scenes\n\n\n\n\n\n\n\n\n\n\n\n\nDec 9, 2020\n\n\n\n\n\n\n\n\nSensing of electrolytes in urine using a miniaturized paper-based device\n\n\n\n\n\n\n\n\n\n\n\n\nAug 12, 2020\n\n\n\n\n\n\n\n\nAutomated screening of sickle cells using a smartphone-based microscope and deep learning\n\n\n\n\n\n\n\n\n\n\n\n\nMay 22, 2020\n\n\n\n\n\n\n\n\nSmartphone-based turbidity reader\n\n\n\n\n\n\n\n\n\n\n\n\nDec 27, 2019\n\n\n\n\n\n\n\n\nRapid imaging, detection, and quantification of Nosema ceranae spores in honey bees using mobile phone-based fluorescence microscopy\n\n\n\n\n\n\n\n\n\n\n\n\nJan 28, 2019\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "teaching/2020-fall-cs130.html",
+    "href": "teaching/2020-fall-cs130.html",
+    "title": "Teaching Assistant in CS 130 (Software Engineering)",
+    "section": "",
+    "text": "As a teaching assistant, I taught software engineering principles in Java to experienced students by revisiting lecture material and going over practice problems. I also graded students’ app design projects based on their adherence to these software engineering principles. Material ranges from UML diagrams and design patterns to software testing.\nDates: 2020-09-28 through 2020-12-18"
+  },
+  {
+    "objectID": "teaching/2020-spring-cs31.html",
+    "href": "teaching/2020-spring-cs31.html",
+    "title": "Teaching Assistant in CS 31 (Intro To Computer Science)",
+    "section": "",
+    "text": "As a teaching assistant, I taught programming principles in C++ to students with little or no experience by revisiting lecture material and going over practice problems. Material ranges from if-conditions and loops to 1D pointer arithmetic.\nDates: 2020-03-25 through 2020-06-12"
+  },
+  {
+    "objectID": "teaching/2021-winter-cs130.html",
+    "href": "teaching/2021-winter-cs130.html",
+    "title": "Teaching Assistant in CS 130 (Software Engineering)",
+    "section": "",
+    "text": "As a teaching assistant, I taught software engineering principles in Java to experienced students by revisiting lecture material and going over practice problems. I also graded students’ app design projects based on their adherence to these software engineering principles. Material ranges from UML diagrams and design patterns to software testing.\nDates: 2021-01-04 through 2020-03-19"
+  }
+]

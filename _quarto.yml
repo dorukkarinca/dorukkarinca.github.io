@@ -1,0 +1,30 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "K. Doruk Karınca"
+  site-url: "https://dorukkarinca.com"
+  navbar:
+    background: dark
+    right:
+      - href: blog.qmd
+        text: Blog
+      - href: publications.qmd
+        text: Publications
+      - href: presentations.qmd
+        text: Presentations
+      - icon: github
+        href: https://github.com/dorukkarinca
+      - icon: linkedin
+        href: https://linkedin.com/in/dorukkarinca
+      - text: SoundCloud
+        href: https://soundcloud.com/dorukkarinca
+
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+

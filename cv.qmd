@@ -1,0 +1,12 @@
+---
+layout: archive
+title: "CV"
+permalink: /cv/
+author_profile: true
+redirect_from:
+  - /resume
+---
+
+[Click here](https://github.com/dorukkarinca/resume/raw/master/KARINCA_resume.pdf) for a single-page resume (without research citations).
+
+[Click here](https://github.com/dorukkarinca/resume/raw/master/KARINCA_cv.pdf) for a multi-page CV (with research citations).

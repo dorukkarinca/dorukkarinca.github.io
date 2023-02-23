@@ -1,0 +1,95 @@
+{
+  "about.qmd": {
+    "about.html": "7afc94ca"
+  },
+  "blog.qmd": {
+    "blog.html": "a9a240dc"
+  },
+  "blog/2023-02-22-JAX-sharding.md": {
+    "2023-02-22-JAX-sharding.html": "46f023ef"
+  },
+  "index.qmd": {
+    "index.html": "12dc2720"
+  },
+  "publications.qmd": {
+    "publications.html": "d4b30fb6"
+  },
+  "publications/2019-01-28-nosema-ceranae-detection.md": {
+    "2019-01-28-nosema-ceranae-detection.html": "31541572"
+  },
+  "publications/2021-06-10-overcoming-difficulty-in-obtaining.md": {
+    "2021-06-10-overcoming-difficulty-in-obtaining.html": "8157a928"
+  },
+  "publications/2020-12-09-diverse-rppg-camera-based.md": {
+    "2020-12-09-diverse-rppg-camera-based.html": "0ac29430"
+  },
+  "publications/2020-08-12-sensing-of-electrolytes.md": {
+    "2020-08-12-sensing-of-electrolytes.html": "7d366b62"
+  },
+  "publications/2020-05-22-automated-screening-of-sickle-cells.md": {
+    "2020-05-22-automated-screening-of-sickle-cells.html": "433bd111"
+  },
+  "publications/2019-12-27-smartphone-based-turbidity-reader.md": {
+    "2019-12-27-smartphone-based-turbidity-reader.html": "9e6e47aa"
+  },
+  "presentations.qmd": {
+    "presentations.html": "cd6f4a2f"
+  },
+  "presentations/2021-03-05-sickle-cell-screening.md": {
+    "2021-03-05-sickle-cell-screening.html": "7b6461b6"
+  },
+  "presentations/2020-08-24-sickle-cell-screening.md": {
+    "2020-08-24-sickle-cell-screening.html": "3dba96f9"
+  },
+  "cv.qmd": {
+    "cv.html": "4cb8b05c"
+  },
+  "presentations/2016-06-13-sickle-cell-detection.md": {
+    "2016-06-13-sickle-cell-detection.html": "42c6c2c8"
+  },
+  "presentations/2017-05-24-presentation-automated-detection-sickle.md": {
+    "2017-05-24-presentation-automated-detection-sickle.html": "68643c21"
+  },
+  "presentations/2017-05-24-presentation-smartphone-based-sickle.md": {
+    "2017-05-24-presentation-smartphone-based-sickle.html": "da064591"
+  },
+  "presentations/2018-05-14-presentation-bee-parasite-detection.md": {
+    "2018-05-14-presentation-bee-parasite-detection.html": "f9862781"
+  },
+  "presentations/2018-05-22-presentation-bee-parasite-detection.md": {
+    "2018-05-22-presentation-bee-parasite-detection.html": "046ec333"
+  },
+  "presentations/2018-10-17-turbidity-measurement.md": {
+    "2018-10-17-turbidity-measurement.html": "1a7ff0f6"
+  },
+  "presentations/2019-02-02-bee-parasite-detection.md": {
+    "2019-02-02-bee-parasite-detection.html": "27258615"
+  },
+  "presentations/2019-06-27-detection-of-nosema.md": {
+    "2019-06-27-detection-of-nosema.html": "49782ae2"
+  },
+  "presentations/2019-06-27-field-portable-turbidity-reader.md": {
+    "2019-06-27-field-portable-turbidity-reader.html": "cea93a0b"
+  },
+  "presentations/2019-10-16-rapid-and-automated-detection-of-nosema.md": {
+    "2019-10-16-rapid-and-automated-detection-of-nosema.html": "309123f7"
+  },
+  "presentations/2019-10-16-water-quality-analysis.md": {
+    "2019-10-16-water-quality-analysis.html": "fa087f7f"
+  },
+  "presentations/2020-02-01-turbidity-analysis.md": {
+    "2020-02-01-turbidity-analysis.html": "928f69dc"
+  },
+  "presentations/2020-05-11-automated-screening-of-sickle-cells.md": {
+    "2020-05-11-automated-screening-of-sickle-cells.html": "87417b4b"
+  },
+  "teaching/2020-fall-cs130.md": {
+    "2020-fall-cs130.html": "4dd2aac4"
+  },
+  "teaching/2020-spring-cs31.md": {
+    "2020-spring-cs31.html": "85d548b0"
+  },
+  "teaching/2021-winter-cs130.md": {
+    "2021-winter-cs130.html": "d7534fab"
+  }
+}
