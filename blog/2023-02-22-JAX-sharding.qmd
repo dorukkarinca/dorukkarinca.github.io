@@ -1,7 +1,6 @@
 ---
 title: "How to split a large model on Colab TPUs"
 date: 2023-02-22
-permalink: /blog/jax-sharding-intro/
 ---
 
 Google Colab has been an amazing tool for trying out new ML ideas. While pipelines are written on PyTorch or TensorFlow with GPU support, I've been recently interested in Colab's TPU accelerator offering and the JAX platform.
@@ -12,6 +11,8 @@ Google Colab has been an amazing tool for trying out new ML ideas. While pipelin
 
 HuggingFace offers a convenient starting point for Jax + TPU:
 
+<details>
+  <summary>HuggingFace starter code</summary>
 ```python
 import jax
 import numpy as np
@@ -50,18 +51,21 @@ def image_grid(imgs, rows, cols):
   
 image_grid(images, 2, 4)
 ```
+</details>
 
 It uses the `replicate` and `shard` utilities of Flax to make 8 copies of the model (one for each TPU device) and parallelize 8 instances of the forward pass. This fits into memory on the smaller, `bfloat16` branch where the pipeline is initialized with `revision="bf16"` and when the safety checker is turned off.
 
 However, this block of code runs out of TPU memory for either one of `revision="bf16"` or `revision="flax"`.
 
-```output
+```python
 XlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 12582912 bytes in memory 0x0x0_HBM0; 12517376 bytes allocatable, 18661376 bytes available
 ```
 
-The only way to get results is to reduce the total allocation size by disabling the safety checker.
+The only way to get results is to reduce the total allocation size by disabling the safety checker:
 
-```output
+<details>
+  <summary>Output after setting safety_checker=None</summary>
+```python
 You have passed `None` for safety_checker to disable its functionality in <class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'>. Note that this might lead to problems when using <class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'> and is not recommended.
 Some weights of the model checkpoint at stable-diffusion-v1-5/text_encoder were not used when initializing FlaxCLIPTextModel: {('text_model', 'embeddings', 'position_ids')}
 - This IS expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
@@ -69,6 +73,7 @@ Some weights of the model checkpoint at stable-diffusion-v1-5/text_encoder were 
 You have disabled the safety checker for <class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'> by passing `safety_checker=None`. Ensure that you abide to the conditions of the Stable Diffusion license and do not expose unfiltered results in services or applications open to the public. Both the diffusers team and Hugging Face strongly recommend to keep the safety filter enabled in all public facing circumstances, disabling it only for use-cases that involve analyzing network behavior or auditing its results. For more information, please have a look at [https://github.com/huggingface/diffusers/pull/254](https://github.com/huggingface/diffusers/pull/254) .
 ```
 ![Stable diffusion output](assets/stable_diffusion_output_multi_0.png)
+</details>
 
 Since the safety checker runs separately from the U-Net, we could load the safety checker on the next TPU core with a small modification in the pipeline. This solves the problem for our specific case but is not generalizable for models that span more than one TPU device. Can we figure out a generalizable way of spreading tensors over multiple TPU devices and still support matrix operations across device borders?
 
@@ -87,7 +92,7 @@ b = jax.device_put(b, device=jax.devices()[1])
 a @ b
 ```
 
-```output
+```python
 ValueError: primitive arguments must be colocated on the same device, got TPU_0(host=0,(0,0,0,0)), TPU_1(host=0,(0,0,0,1))
 ```
 
@@ -151,9 +156,13 @@ For personal convenicence, I cloned the weight repo (`runwayml/stable-diffusion-
 Most importantly, let's remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.
 
 With all this in mind, here's the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier. This still exhausts TPU memory:
+
+<details>
+  <summary>Code and output</summary>
 ```python
 # single image, jitted and everything on single TPU with safety checker
 
+# workaround for pip -e not working:
 if "/content/drive/MyDrive/projects/diffusers/src" not in sys.path:
   sys.path.append("/content/drive/MyDrive/projects/diffusers/src")
 from diffusers import FlaxStableDiffusionPipeline
@@ -192,12 +201,17 @@ image_grid(images, 1, 1)
 XlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 1024 bytes in memory 0x0x0_HBM0; 0 bytes allocatable, 0 
 bytes available
 ```
+</details>
 
 
 If we keep everything the same but shard the model instead, we are in good shape:
+
+<details>
+  <summary>Code and output</summary>
 ```python
 # single image, jitted, greedily sharded
 
+# workaround for pip -e not working:
 if "/content/drive/MyDrive/projects/diffusers/src" not in sys.path:
   sys.path.append("/content/drive/MyDrive/projects/diffusers/src")
 from diffusers import FlaxStableDiffusionPipeline
@@ -236,8 +250,12 @@ image_grid(images, 1, 1)
 
 Output:
 ![Stable diffusion output](assets/stable_diffusion_output_1.png)
+</details>
 
 Here's the definition of `TensorDistributor`, which is a wrapper for the `tree_map` shown earlier but it keeps a tally of TPU capacities to figure out where to allocate:
+
+<details>
+  <summary>Code</summary>
 ```python
 class TensorDistributor:
   def __init__(self, devices, capacities):
@@ -314,6 +332,7 @@ class TensorDistributor:
       return map
 ```
 *Disclaimer: Feel free to use TensorDistributor according to the MIT License. No warranties are implied.*
+</details>
 
 We could have avoided defining `capacities` if we had a function that returns the free memory in bytes i.e. something like `torch.cuda.memory_reserved(0) - torch.cuda.memory_allocated(0)` but for TPUs in JAX. However, the only way I could find to check free memory usage in JAX is to [use a profiler](https://jax.readthedocs.io/en/latest/device_memory_profiling.html) which only outputs `prof` files. Not a big deal since hard-coding capacities seems to be sufficient for the purpose, and also gives the user intentional control over limiting memory consumption per TPU.
 

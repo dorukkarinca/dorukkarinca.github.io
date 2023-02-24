@@ -221,6 +221,10 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <section id="getting-started" class="level2">
 <h2 class="anchored" data-anchor-id="getting-started">Getting started</h2>
 <p>HuggingFace offers a convenient starting point for Jax + TPU:</p>
+<details>
+<summary>
+HuggingFace starter code
+</summary>
 <div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> jax</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> flax.jax_utils <span class="im">import</span> replicate</span>
@@ -257,21 +261,27 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
 <span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">2</span>, <span class="dv">4</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <p>It uses the <code>replicate</code> and <code>shard</code> utilities of Flax to make 8 copies of the model (one for each TPU device) and parallelize 8 instances of the forward pass. This fits into memory on the smaller, <code>bfloat16</code> branch where the pipeline is initialized with <code>revision="bf16"</code> and when the safety checker is turned off.</p>
 <p>However, this block of code runs out of TPU memory for either one of <code>revision="bf16"</code> or <code>revision="flax"</code>.</p>
-<pre class="output"><code>XlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 12582912 bytes in memory 0x0x0_HBM0; 12517376 bytes allocatable, 18661376 bytes available</code></pre>
-<p>The only way to get results is to reduce the total allocation size by disabling the safety checker.</p>
-<pre class="output"><code>You have passed `None` for safety_checker to disable its functionality in &lt;class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'&gt;. Note that this might lead to problems when using &lt;class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'&gt; and is not recommended.
-Some weights of the model checkpoint at stable-diffusion-v1-5/text_encoder were not used when initializing FlaxCLIPTextModel: {('text_model', 'embeddings', 'position_ids')}
-- This IS expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
-- This IS NOT expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
-You have disabled the safety checker for &lt;class 'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'&gt; by passing `safety_checker=None`. Ensure that you abide to the conditions of the Stable Diffusion license and do not expose unfiltered results in services or applications open to the public. Both the diffusers team and Hugging Face strongly recommend to keep the safety filter enabled in all public facing circumstances, disabling it only for use-cases that involve analyzing network behavior or auditing its results. For more information, please have a look at [https://github.com/huggingface/diffusers/pull/254](https://github.com/huggingface/diffusers/pull/254) .</code></pre>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>XlaRuntimeError: RESOURCE_EXHAUSTED: Could <span class="kw">not</span> allocate <span class="dv">12582912</span> <span class="bu">bytes</span> <span class="kw">in</span> memory <span class="bn">0x0</span><span class="er">x0_HBM0</span><span class="op">;</span> <span class="dv">12517376</span> <span class="bu">bytes</span> allocatable, <span class="dv">18661376</span> <span class="bu">bytes</span> available</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>The only way to get results is to reduce the total allocation size by disabling the safety checker:</p>
+<details>
+<summary>
+Output after setting safety_checker=None
+</summary>
+<div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>You have passed `None` <span class="cf">for</span> safety_checker to disable its functionality <span class="kw">in</span> <span class="op">&lt;</span><span class="kw">class</span> <span class="st">'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'</span><span class="op">&gt;</span>. Note that this might lead to problems when using <span class="op">&lt;</span><span class="kw">class</span> <span class="st">'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'</span><span class="op">&gt;</span> <span class="kw">and</span> <span class="kw">is</span> <span class="kw">not</span> recommended.</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>Some weights of the model checkpoint at stable<span class="op">-</span>diffusion<span class="op">-</span>v1<span class="op">-</span><span class="dv">5</span><span class="op">/</span>text_encoder were <span class="kw">not</span> used when initializing FlaxCLIPTextModel: {(<span class="st">'text_model'</span>, <span class="st">'embeddings'</span>, <span class="st">'position_ids'</span>)}</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> This IS expected <span class="cf">if</span> you are initializing FlaxCLIPTextModel <span class="im">from</span> the checkpoint of a model trained on another task <span class="kw">or</span> <span class="cf">with</span> another architecture (e.g. initializing a BertForSequenceClassification model <span class="im">from</span> a BertForPreTraining model).</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">-</span> This IS NOT expected <span class="cf">if</span> you are initializing FlaxCLIPTextModel <span class="im">from</span> the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model <span class="im">from</span> a BertForSequenceClassification model).</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>You have disabled the safety checker <span class="cf">for</span> <span class="op">&lt;</span><span class="kw">class</span> <span class="st">'diffusers.pipelines.stable_diffusion.pipeline_flax_stable_diffusion.FlaxStableDiffusionPipeline'</span><span class="op">&gt;</span> by passing `safety_checker<span class="op">=</span>None`. Ensure that you abide to the conditions of the Stable Diffusion license <span class="kw">and</span> do <span class="kw">not</span> expose unfiltered results <span class="kw">in</span> services <span class="kw">or</span> applications <span class="bu">open</span> to the public. Both the diffusers team <span class="kw">and</span> Hugging Face strongly recommend to keep the safety <span class="bu">filter</span> enabled <span class="kw">in</span> <span class="bu">all</span> public facing circumstances, disabling it only <span class="cf">for</span> use<span class="op">-</span>cases that involve analyzing network behavior <span class="kw">or</span> auditing its results. For more information, please have a look at [https:<span class="op">//</span>github.com<span class="op">/</span>huggingface<span class="op">/</span>diffusers<span class="op">/</span>pull<span class="op">/</span><span class="dv">254</span>](https:<span class="op">//</span>github.com<span class="op">/</span>huggingface<span class="op">/</span>diffusers<span class="op">/</span>pull<span class="op">/</span><span class="dv">254</span>) .</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="assets/stable_diffusion_output_multi_0.png" class="img-fluid figure-img"></p>
 <p></p><figcaption class="figure-caption">Stable diffusion output</figcaption><p></p>
 </figure>
 </div>
+</details>
 <p>Since the safety checker runs separately from the U-Net, we could load the safety checker on the next TPU core with a small modification in the pipeline. This solves the problem for our specific case but is not generalizable for models that span more than one TPU device. Can we figure out a generalizable way of spreading tensors over multiple TPU devices and still support matrix operations across device borders?</p>
 <p>To motivate this venture, we should keep in mind Colab is offering us a total 64 GiB of high-bandwidth memory spread over 8 devices (or 4 cores). The ability to split a model into multiple devices without making assumptions about the underlying deep learning architecture can be a nifty way to play around with large models with minimal effort.</p>
 </section>
@@ -284,7 +294,7 @@ You have disabled the safety checker for &lt;class 'diffusers.pipelines.stable_d
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>a <span class="op">=</span> jax.device_put(a, device<span class="op">=</span>jax.devices()[<span class="dv">0</span>])</span>
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> jax.device_put(b, device<span class="op">=</span>jax.devices()[<span class="dv">1</span>])</span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>a <span class="op">@</span> b</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<pre class="output"><code>ValueError: primitive arguments must be colocated on the same device, got TPU_0(host=0,(0,0,0,0)), TPU_1(host=0,(0,0,0,1))</code></pre>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">ValueError</span>: primitive arguments must be colocated on the same device, got TPU_0(host<span class="op">=</span><span class="dv">0</span>,(<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>)), TPU_1(host<span class="op">=</span><span class="dv">0</span>,(<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>The most performance-conscious way to spread a matrix multiplication over two devices is to use JAX’s <code>pjit</code> library <a href="https://jax.readthedocs.io/en/latest/notebooks/Distributed_arrays_and_automatic_parallelization.html">following its detailed official walkthrough</a>. <code>pjit</code>, as of writing this post in February 2023, is an experimental library that optimizes your code with just-in-time compilation and works with a device mesh definition. This device mesh allows the user to spread selected steps of the computation graph across device slices with APIs like <code>jax.lax.with_sharding_constraint</code>. An even better <a href="https://irhum.github.io/blog/pjit/">tutorial</a> shows clear diagrams that show how your matrix multiplication will be sharded for the constraints you impose. The paper mentioned in the tutorial has even provided an optimal sharding spec for the specific architecture.</p>
 <p>Unfortunately, Colab seems to run <a href="https://github.com/google/flax/issues/2263#issuecomment-1173424293">a legacy version</a> of <a href="https://github.com/google/jax/issues/8300#issuecomment-948458082">TPUv2</a> which does not have pjit support. This is also a warning at the top of the aforementioned walkthrough. Moreover, producing a <code>PartitionSpec</code> and adding <code>jax.lax.with_sharding_constraint</code> to individual steps of the computation graph is something that needs to be done manually and correctly for each different deep learning architecture, which wouldn’t make our solution generalizable. Fortunately, there’s one more thing to try which we find out after a bit of digging into the JAX API.</p>
 <p>Although <code>jax.Array</code> is the default the return type of most JAX operations, <code>jax.device_put_sharded</code> and <code>jax.device_put_replicated</code> return a special subtype called <code>ShardedDeviceArray</code>, and this particular type allows operations between devices. Let’s revisit our previous matrix multiplication <code>a @ b</code>, this time using <code>jax.device_put_sharded</code>:</p>
@@ -325,81 +335,97 @@ with
 <p>For personal convenicence, I cloned the weight repo (<code>runwayml/stable-diffusion-v1-5</code>) to my local relative Google Drive path so my pipeline calls read <code>FlaxStableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", ...)</code> instead.</p>
 <p>Most importantly, let’s remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.</p>
 <p>With all this in mind, here’s the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier. This still exhausts TPU memory:</p>
+<details>
+<summary>
+Code and output
+</summary>
 <div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># single image, jitted and everything on single TPU with safety checker</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span> <span class="kw">not</span> <span class="kw">in</span> sys.path:</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  sys.path.append(<span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span>)</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> FlaxStableDiffusionPipeline</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>dtype <span class="op">=</span> jnp.bfloat16</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>pipeline, params <span class="op">=</span> FlaxStableDiffusionPipeline.from_pretrained(</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"stable-diffusion-v1-5"</span>, revision<span class="op">=</span><span class="st">"flax"</span>, dtype<span class="op">=</span>dtype, from_pt<span class="op">=</span><span class="va">True</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"pipeline loaded"</span>)</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic"</span></span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> [prompt] <span class="op">*</span> <span class="dv">1</span></span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> pipeline.prepare_inputs(prompt)</span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>p_params <span class="op">=</span> replicate(params, devices<span class="op">=</span>jax.devices()[<span class="dv">2</span>:<span class="dv">3</span>]) <span class="co"># replicate adds a leading (1, ...) on each tensor</span></span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> prompt_ids.reshape((<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>, <span class="op">*</span>prompt_ids.shape[<span class="dv">1</span>:])) <span class="co"># fake shard(...)</span></span>
-<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_key(seed<span class="op">=</span><span class="dv">0</span>):</span>
-<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jax.random.PRNGKey(seed)</span>
-<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
-<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
-<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">True</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
-<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
-<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
-<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>    w,h <span class="op">=</span> imgs[<span class="dv">0</span>].size</span>
-<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>    grid <span class="op">=</span> Image.new(<span class="st">'RGB'</span>, size<span class="op">=</span>(cols<span class="op">*</span>w, rows<span class="op">*</span>h))</span>
-<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(imgs): grid.paste(img, box<span class="op">=</span>(i<span class="op">%</span>cols<span class="op">*</span>w, i<span class="op">//</span>cols<span class="op">*</span>h))</span>
-<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
-<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># workaround for pip -e not working:</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span> <span class="kw">not</span> <span class="kw">in</span> sys.path:</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  sys.path.append(<span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span>)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> FlaxStableDiffusionPipeline</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>dtype <span class="op">=</span> jnp.bfloat16</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>pipeline, params <span class="op">=</span> FlaxStableDiffusionPipeline.from_pretrained(</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"stable-diffusion-v1-5"</span>, revision<span class="op">=</span><span class="st">"flax"</span>, dtype<span class="op">=</span>dtype, from_pt<span class="op">=</span><span class="va">True</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"pipeline loaded"</span>)</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic"</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> [prompt] <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> pipeline.prepare_inputs(prompt)</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>p_params <span class="op">=</span> replicate(params, devices<span class="op">=</span>jax.devices()[<span class="dv">2</span>:<span class="dv">3</span>]) <span class="co"># replicate adds a leading (1, ...) on each tensor</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> prompt_ids.reshape((<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>, <span class="op">*</span>prompt_ids.shape[<span class="dv">1</span>:])) <span class="co"># fake shard(...)</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_key(seed<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jax.random.PRNGKey(seed)</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">True</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>    w,h <span class="op">=</span> imgs[<span class="dv">0</span>].size</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>    grid <span class="op">=</span> Image.new(<span class="st">'RGB'</span>, size<span class="op">=</span>(cols<span class="op">*</span>w, rows<span class="op">*</span>h))</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(imgs): grid.paste(img, box<span class="op">=</span>(i<span class="op">%</span>cols<span class="op">*</span>w, i<span class="op">//</span>cols<span class="op">*</span>h))</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <pre class="output"><code>XlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 1024 bytes in memory 0x0x0_HBM0; 0 bytes allocatable, 0 
 bytes available</code></pre>
+</details>
 <p>If we keep everything the same but shard the model instead, we are in good shape:</p>
+<details>
+<summary>
+Code and output
+</summary>
 <div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># single image, jitted, greedily sharded</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span> <span class="kw">not</span> <span class="kw">in</span> sys.path:</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  sys.path.append(<span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span>)</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> FlaxStableDiffusionPipeline</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>dtype <span class="op">=</span> jnp.bfloat16</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>pipeline, params <span class="op">=</span> FlaxStableDiffusionPipeline.from_pretrained(</span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"stable-diffusion-v1-5"</span>, revision<span class="op">=</span><span class="st">"flax"</span>, dtype<span class="op">=</span>dtype, from_pt<span class="op">=</span><span class="va">True</span>,</span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    safety_checker<span class="op">=</span><span class="va">None</span></span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic"</span></span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> [prompt] <span class="op">*</span> <span class="dv">1</span></span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> pipeline.prepare_inputs(prompt)</span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> prompt_ids.reshape((<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>, <span class="op">*</span>prompt_ids.shape[<span class="dv">1</span>:])) <span class="co"># fake shard(...)</span></span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>capacities <span class="op">=</span> [<span class="dv">4</span><span class="op">*</span><span class="fl">1e9</span> <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(jax.devices()[<span class="dv">2</span>:<span class="dv">8</span>]))] <span class="co"># I set it to 4 GB instead of 7.5 GB for extra safety and more aggressive sharding</span></span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>distributor <span class="op">=</span> TensorDistributor(devices<span class="op">=</span>jax.devices()[<span class="dv">2</span>:<span class="dv">8</span>], capacities<span class="op">=</span>capacities)</span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>p_params <span class="op">=</span> distributor.greedily_distribute_tensors(params, squeeze_first_axis<span class="op">=</span><span class="va">False</span>) <span class="co"># the first axis aids in jitting</span></span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_key(seed<span class="op">=</span><span class="dv">0</span>):</span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jax.random.PRNGKey(seed)</span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">True</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>    w,h <span class="op">=</span> imgs[<span class="dv">0</span>].size</span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>    grid <span class="op">=</span> Image.new(<span class="st">'RGB'</span>, size<span class="op">=</span>(cols<span class="op">*</span>w, rows<span class="op">*</span>h))</span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(imgs): grid.paste(img, box<span class="op">=</span>(i<span class="op">%</span>cols<span class="op">*</span>w, i<span class="op">//</span>cols<span class="op">*</span>h))</span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
-<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>Output: <img src="assets/stable_diffusion_output_1.png" class="img-fluid" alt="Stable diffusion output"></p>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># workaround for pip -e not working:</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span> <span class="kw">not</span> <span class="kw">in</span> sys.path:</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  sys.path.append(<span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> FlaxStableDiffusionPipeline</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>dtype <span class="op">=</span> jnp.bfloat16</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>pipeline, params <span class="op">=</span> FlaxStableDiffusionPipeline.from_pretrained(</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"stable-diffusion-v1-5"</span>, revision<span class="op">=</span><span class="st">"flax"</span>, dtype<span class="op">=</span>dtype, from_pt<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    safety_checker<span class="op">=</span><span class="va">None</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic"</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> [prompt] <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> pipeline.prepare_inputs(prompt)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> prompt_ids.reshape((<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>, <span class="op">*</span>prompt_ids.shape[<span class="dv">1</span>:])) <span class="co"># fake shard(...)</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>capacities <span class="op">=</span> [<span class="dv">4</span><span class="op">*</span><span class="fl">1e9</span> <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(jax.devices()[<span class="dv">2</span>:<span class="dv">8</span>]))] <span class="co"># I set it to 4 GB instead of 7.5 GB for extra safety and more aggressive sharding</span></span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>distributor <span class="op">=</span> TensorDistributor(devices<span class="op">=</span>jax.devices()[<span class="dv">2</span>:<span class="dv">8</span>], capacities<span class="op">=</span>capacities)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>p_params <span class="op">=</span> distributor.greedily_distribute_tensors(params, squeeze_first_axis<span class="op">=</span><span class="va">False</span>) <span class="co"># the first axis aids in jitting</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_key(seed<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jax.random.PRNGKey(seed)</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">True</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>    w,h <span class="op">=</span> imgs[<span class="dv">0</span>].size</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    grid <span class="op">=</span> Image.new(<span class="st">'RGB'</span>, size<span class="op">=</span>(cols<span class="op">*</span>w, rows<span class="op">*</span>h))</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(imgs): grid.paste(img, box<span class="op">=</span>(i<span class="op">%</span>cols<span class="op">*</span>w, i<span class="op">//</span>cols<span class="op">*</span>h))</span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+Output: <img src="assets/stable_diffusion_output_1.png" class="img-fluid" alt="Stable diffusion output">
+</details>
 <p>Here’s the definition of <code>TensorDistributor</code>, which is a wrapper for the <code>tree_map</code> shown earlier but it keeps a tally of TPU capacities to figure out where to allocate:</p>
+<details>
+<summary>
+Code
+</summary>
 <div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TensorDistributor:</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, devices, capacities):</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">len</span>(devices) <span class="op">&gt;=</span> <span class="dv">1</span>, <span class="st">"At least one device is needed."</span></span>
@@ -473,7 +499,8 @@ bytes available</code></pre>
 <span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a>              params</span>
 <span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a>            )</span>
 <span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="bu">map</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p><em>Disclaimer: Feel free to use TensorDistributor according to the MIT License. No warranties are implied.</em></p>
+<em>Disclaimer: Feel free to use TensorDistributor according to the MIT License. No warranties are implied.</em>
+</details>
 <p>We could have avoided defining <code>capacities</code> if we had a function that returns the free memory in bytes i.e.&nbsp;something like <code>torch.cuda.memory_reserved(0) - torch.cuda.memory_allocated(0)</code> but for TPUs in JAX. However, the only way I could find to check free memory usage in JAX is to <a href="https://jax.readthedocs.io/en/latest/device_memory_profiling.html">use a profiler</a> which only outputs <code>prof</code> files. Not a big deal since hard-coding capacities seems to be sufficient for the purpose, and also gives the user intentional control over limiting memory consumption per TPU.</p>
 <p>Hope you find this interesting and useful for supercharging your DL projects using TPUs!</p>
 
