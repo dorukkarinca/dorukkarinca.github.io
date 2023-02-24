@@ -317,7 +317,7 @@ Output after setting safety_checker=None
 <section id="putting-it-all-together" class="level2">
 <h2 class="anchored" data-anchor-id="putting-it-all-together">Putting it all together</h2>
 <p>A small performance upgrade is needed on the pipeline side to make it work: while reading the PyTorch model off the disk and converting it into JAX, there’s a brief loading region where PyTorch and JAX weights are both referenced in RAM. This duplication of weights exhausts CPU memory before we can move things to the TPU. The quick solution is to keep overwriting the same <code>state</code> variable name during conversion so that only one copy of the weights is referenced. The garbage collector does the rest of the heavy-lifting:</p>
-<pre><code>Around line 406, change
+<pre><code>Around line 406 of modeling_flax_utils.py, change
 
     # Step 1: Get the pytorch file
     pytorch_model_file = load_state_dict(model_file)
@@ -334,7 +334,7 @@ with
     state = convert_pytorch_state_dict_to_flax(state, model)</code></pre>
 <p>For personal convenicence, I cloned the weight repo (<code>runwayml/stable-diffusion-v1-5</code>) to my local relative Google Drive path so my pipeline calls read <code>FlaxStableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", ...)</code> instead.</p>
 <p>Most importantly, let’s remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.</p>
-<p>With all this in mind, here’s the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier. This still exhausts TPU memory:</p>
+<p>With all this in mind, here’s the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier:</p>
 <details>
 <summary>
 Code and output
@@ -377,7 +377,7 @@ Code and output
 <pre class="output"><code>XlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 1024 bytes in memory 0x0x0_HBM0; 0 bytes allocatable, 0 
 bytes available</code></pre>
 </details>
-<p>If we keep everything the same but shard the model instead, we are in good shape:</p>
+<p>If we keep everything the same but distribute the model instead, we are in good shape:</p>
 <details>
 <summary>
 Code and output

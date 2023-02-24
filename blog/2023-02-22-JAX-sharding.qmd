@@ -134,7 +134,7 @@ Don't worry, `random.choice` is there for dramatic effect! (though, for model si
 A small performance upgrade is needed on the pipeline side to make it work: while reading the PyTorch model off the disk and converting it into JAX, there's a brief loading region where PyTorch and JAX weights are both referenced in RAM. This duplication of weights exhausts CPU memory before we can move things to the TPU. The quick solution is to keep overwriting the same `state` variable name during conversion so that only one copy of the weights is referenced. The garbage collector does the rest of the heavy-lifting:
 
 ```
-Around line 406, change
+Around line 406 of modeling_flax_utils.py, change
 
 	# Step 1: Get the pytorch file
 	pytorch_model_file = load_state_dict(model_file)
@@ -155,7 +155,7 @@ For personal convenicence, I cloned the weight repo (`runwayml/stable-diffusion-
 
 Most importantly, let's remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.
 
-With all this in mind, here's the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier. This still exhausts TPU memory:
+With all this in mind, here's the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier:
 
 <details>
   <summary>Code and output</summary>
@@ -204,7 +204,7 @@ bytes available
 </details>
 
 
-If we keep everything the same but shard the model instead, we are in good shape:
+If we keep everything the same but distribute the model instead, we are in good shape:
 
 <details>
   <summary>Code and output</summary>
