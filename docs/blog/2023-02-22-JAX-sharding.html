@@ -332,7 +332,7 @@ with
     
     # Step 2: Convert the weights
     state = convert_pytorch_state_dict_to_flax(state, model)</code></pre>
-<p>For personal convenicence, I cloned the weight repo (<code>runwayml/stable-diffusion-v1-5</code>) to my local relative Google Drive path so my pipeline calls read <code>FlaxStableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", ...)</code> instead.</p>
+<p>For personal convenience, I cloned the weight repo (<code>runwayml/stable-diffusion-v1-5</code>) to my local relative Google Drive path so my pipeline calls read <code>FlaxStableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", ...)</code> instead.</p>
 <p>Most importantly, let’s remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.</p>
 <p>With all this in mind, here’s the error case that puts everything on one TPU device:</p>
 <details>
@@ -363,7 +363,7 @@ Code and output
 <span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
 <span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
 <span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">False</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">False</span>)[<span class="dv">0</span>]</span>
 <span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
 <span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
@@ -414,7 +414,7 @@ Code and output
 <span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
 <span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
 <span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">False</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">False</span>)[<span class="dv">0</span>]</span>
 <span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
 <span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>

@@ -151,7 +151,7 @@ with
 	state = convert_pytorch_state_dict_to_flax(state, model)
 ```
 
-For personal convenicence, I cloned the weight repo (`runwayml/stable-diffusion-v1-5`) to my local relative Google Drive path so my pipeline calls read `FlaxStableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", ...)` instead.
+For personal convenience, I cloned the weight repo (`runwayml/stable-diffusion-v1-5`) to my local relative Google Drive path so my pipeline calls read `FlaxStableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", ...)` instead.
 
 Most importantly, let's remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.
 
