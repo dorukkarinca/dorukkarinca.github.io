@@ -334,14 +334,14 @@ with
     state = convert_pytorch_state_dict_to_flax(state, model)</code></pre>
 <p>For personal convenicence, I cloned the weight repo (<code>runwayml/stable-diffusion-v1-5</code>) to my local relative Google Drive path so my pipeline calls read <code>FlaxStableDiffusionPipeline.from_pretrained("stable-diffusion-v1-5", ...)</code> instead.</p>
 <p>Most importantly, let’s remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.</p>
-<p>With all this in mind, here’s the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier:</p>
+<p>With all this in mind, here’s the error case that puts everything on one TPU device:</p>
 <details>
 <summary>
 Code and output
 </summary>
-<div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># single image, jitted and everything on single TPU with safety checker</span></span>
+<div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># single image, non-jitted and everything on single TPU with safety checker</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># workaround for pip -e not working:</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># workaround for pip install -e not working:</span></span>
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span> <span class="kw">not</span> <span class="kw">in</span> sys.path:</span>
 <span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  sys.path.append(<span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span>)</span>
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> FlaxStableDiffusionPipeline</span>
@@ -356,35 +356,42 @@ Code and output
 <span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> [prompt] <span class="op">*</span> <span class="dv">1</span></span>
 <span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> pipeline.prepare_inputs(prompt)</span>
 <span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>p_params <span class="op">=</span> replicate(params, devices<span class="op">=</span>jax.devices()[<span class="dv">2</span>:<span class="dv">3</span>]) <span class="co"># replicate adds a leading (1, ...) on each tensor</span></span>
-<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> prompt_ids.reshape((<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>, <span class="op">*</span>prompt_ids.shape[<span class="dv">1</span>:])) <span class="co"># fake shard(...)</span></span>
-<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_key(seed<span class="op">=</span><span class="dv">0</span>):</span>
-<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jax.random.PRNGKey(seed)</span>
-<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
-<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">True</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
-<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
-<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
-<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>    w,h <span class="op">=</span> imgs[<span class="dv">0</span>].size</span>
-<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>    grid <span class="op">=</span> Image.new(<span class="st">'RGB'</span>, size<span class="op">=</span>(cols<span class="op">*</span>w, rows<span class="op">*</span>h))</span>
-<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(imgs): grid.paste(img, box<span class="op">=</span>(i<span class="op">%</span>cols<span class="op">*</span>w, i<span class="op">//</span>cols<span class="op">*</span>h))</span>
-<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
-<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<pre class="output"><code>XlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 1024 bytes in memory 0x0x0_HBM0; 0 bytes allocatable, 0 
-bytes available</code></pre>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>p_params <span class="op">=</span> jax.tree_util.tree_map(<span class="kw">lambda</span> x: jax.device_put(x, jax.devices()[<span class="dv">2</span>]), params)</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_key(seed<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jax.random.PRNGKey(seed)</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">False</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>    w,h <span class="op">=</span> imgs[<span class="dv">0</span>].size</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>    grid <span class="op">=</span> Image.new(<span class="st">'RGB'</span>, size<span class="op">=</span>(cols<span class="op">*</span>w, rows<span class="op">*</span>h))</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(imgs): grid.paste(img, box<span class="op">=</span>(i<span class="op">%</span>cols<span class="op">*</span>w, i<span class="op">//</span>cols<span class="op">*</span>h))</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<pre class="output"><code>Some weights of the model checkpoint at stable-diffusion-v1-5/text_encoder were not used when initializing FlaxCLIPTextModel: {('text_model', 'embeddings', 'position_ids')}
+- This IS expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Some weights of the model checkpoint at stable-diffusion-v1-5/safety_checker were not used when initializing FlaxStableDiffusionSafetyChecker: {('vision_model', 'vision_model', 'embeddings', 'position_ids')}
+- This IS expected if you are initializing FlaxStableDiffusionSafetyChecker from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing FlaxStableDiffusionSafetyChecker from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+pipeline loaded
+UnfilteredStackTrace: jaxlib.xla_extension.XlaRuntimeError: FAILED_PRECONDITION: Dependency failed: Dependency 
+failed: Timed out while waiting for dependency 671371:66613 to be resolved. This is usually due to a server restart
+and a stale client. Try restarting your client.</code></pre>
 </details>
 <p>If we keep everything the same but distribute the model instead, we are in good shape:</p>
 <details>
 <summary>
 Code and output
 </summary>
-<div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># single image, jitted, greedily sharded</span></span>
+<div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># single image, non-jitted, greedily sharded with safety checker</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># workaround for pip -e not working:</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># workaround for pip install -e not working:</span></span>
 <span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span> <span class="kw">not</span> <span class="kw">in</span> sys.path:</span>
 <span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  sys.path.append(<span class="st">"/content/drive/MyDrive/projects/diffusers/src"</span>)</span>
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> diffusers <span class="im">import</span> FlaxStableDiffusionPipeline</span>
@@ -393,112 +400,122 @@ Code and output
 <span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>pipeline, params <span class="op">=</span> FlaxStableDiffusionPipeline.from_pretrained(</span>
 <span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">"stable-diffusion-v1-5"</span>, revision<span class="op">=</span><span class="st">"flax"</span>, dtype<span class="op">=</span>dtype, from_pt<span class="op">=</span><span class="va">True</span>,</span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    safety_checker<span class="op">=</span><span class="va">None</span></span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic"</span></span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> [prompt] <span class="op">*</span> <span class="dv">1</span></span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> pipeline.prepare_inputs(prompt)</span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> prompt_ids.reshape((<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>, <span class="op">*</span>prompt_ids.shape[<span class="dv">1</span>:])) <span class="co"># fake shard(...)</span></span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>capacities <span class="op">=</span> [<span class="dv">4</span><span class="op">*</span><span class="fl">1e9</span> <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(jax.devices()[<span class="dv">2</span>:<span class="dv">8</span>]))] <span class="co"># I set it to 4 GB instead of 7.5 GB for extra safety and more aggressive sharding</span></span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>distributor <span class="op">=</span> TensorDistributor(devices<span class="op">=</span>jax.devices()[<span class="dv">2</span>:<span class="dv">8</span>], capacities<span class="op">=</span>capacities)</span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>p_params <span class="op">=</span> distributor.greedily_distribute_tensors(params, squeeze_first_axis<span class="op">=</span><span class="va">False</span>) <span class="co"># the first axis aids in jitting</span></span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_key(seed<span class="op">=</span><span class="dv">0</span>):</span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jax.random.PRNGKey(seed)</span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">True</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>    w,h <span class="op">=</span> imgs[<span class="dv">0</span>].size</span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    grid <span class="op">=</span> Image.new(<span class="st">'RGB'</span>, size<span class="op">=</span>(cols<span class="op">*</span>w, rows<span class="op">*</span>h))</span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(imgs): grid.paste(img, box<span class="op">=</span>(i<span class="op">%</span>cols<span class="op">*</span>w, i<span class="op">//</span>cols<span class="op">*</span>h))</span>
-<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
-<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-Output: <img src="assets/stable_diffusion_output_1.png" class="img-fluid" alt="Stable diffusion output">
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> <span class="st">"A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic"</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>prompt <span class="op">=</span> [prompt] <span class="op">*</span> <span class="dv">1</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>prompt_ids <span class="op">=</span> pipeline.prepare_inputs(prompt)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>capacities <span class="op">=</span> [<span class="dv">3</span><span class="op">*</span><span class="fl">1e9</span> <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(jax.devices()[<span class="dv">2</span>:<span class="dv">8</span>]))]</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>distributor <span class="op">=</span> TensorDistributor(devices<span class="op">=</span>jax.devices()[<span class="dv">2</span>:<span class="dv">8</span>], capacities<span class="op">=</span>capacities)</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>p_params <span class="op">=</span> distributor.greedily_distribute_tensors(params, squeeze_first_axis<span class="op">=</span><span class="va">True</span>) <span class="co"># the first axis aids in jitting</span></span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_key(seed<span class="op">=</span><span class="dv">0</span>):</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jax.random.PRNGKey(seed)</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> create_key(<span class="dv">0</span>)</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> jax.random.split(rng, <span class="dv">1</span>)</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline(prompt_ids, p_params, rng, jit<span class="op">=</span><span class="va">False</span>)[<span class="dv">0</span>][<span class="dv">0</span>]</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>images <span class="op">=</span> pipeline.numpy_to_pil(images)</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> image_grid(imgs, rows, cols):</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>    w,h <span class="op">=</span> imgs[<span class="dv">0</span>].size</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>    grid <span class="op">=</span> Image.new(<span class="st">'RGB'</span>, size<span class="op">=</span>(cols<span class="op">*</span>w, rows<span class="op">*</span>h))</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i, img <span class="kw">in</span> <span class="bu">enumerate</span>(imgs): grid.paste(img, box<span class="op">=</span>(i<span class="op">%</span>cols<span class="op">*</span>w, i<span class="op">//</span>cols<span class="op">*</span>h))</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> grid</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>image_grid(images, <span class="dv">1</span>, <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Output:</p>
+<pre class="output"><code>Some weights of the model checkpoint at stable-diffusion-v1-5/safety_checker were not used when initializing FlaxStableDiffusionSafetyChecker: {('vision_model', 'vision_model', 'embeddings', 'position_ids')}
+- This IS expected if you are initializing FlaxStableDiffusionSafetyChecker from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing FlaxStableDiffusionSafetyChecker from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Some weights of the model checkpoint at stable-diffusion-v1-5/text_encoder were not used when initializing FlaxCLIPTextModel: {('text_model', 'embeddings', 'position_ids')}
+- This IS expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).</code></pre>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="assets/stable_diffusion_output_1.png" class="img-fluid figure-img"></p>
+<p></p><figcaption class="figure-caption">Stable diffusion output</figcaption><p></p>
+</figure>
+</div>
 </details>
 <p>Here’s the definition of <code>TensorDistributor</code>, which is a wrapper for the <code>tree_map</code> shown earlier but it keeps a tally of TPU capacities to figure out where to allocate:</p>
 <details>
 <summary>
 Code
 </summary>
-<div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TensorDistributor:</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, devices, capacities):</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">len</span>(devices) <span class="op">&gt;=</span> <span class="dv">1</span>, <span class="st">"At least one device is needed."</span></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">len</span>(devices) <span class="op">==</span> <span class="bu">len</span>(capacities), <span class="st">"Devices and capacities must match."</span></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>.devices, <span class="va">self</span>.capacities <span class="op">=</span> devices, capacities</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>.idx <span class="op">=</span> <span class="bu">len</span>(devices)<span class="op">-</span><span class="dv">1</span> <span class="co"># index of current allocation device</span></span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">@staticmethod</span></span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> _move(tensor, device, squeeze_first_axis<span class="op">=</span><span class="va">False</span>):</span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> jax.device_put_sharded([tensor], devices<span class="op">=</span>[device])</span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> result[<span class="dv">0</span>] <span class="cf">if</span> squeeze_first_axis <span class="cf">else</span> result</span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">@staticmethod</span></span>
-<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> randomly_distribute_tensors(</span>
-<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>      params: frozen_dict.FrozenDict,</span>
-<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>      squeeze_first_axis<span class="op">=</span><span class="va">False</span>,</span>
-<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>      devices<span class="op">=</span>jax.devices()</span>
-<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>  ):</span>
-<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>      <span class="co">"""Spreads all tensors in `params` across jax.devices() randomly</span></span>
-<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="co">      </span></span>
-<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a><span class="co">      Args:</span></span>
-<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a><span class="co">          params (dict): Params dict for the network.</span></span>
-<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a><span class="co">      Returns:</span></span>
-<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a><span class="co">          new_params: A dictionary identical to params in structure, </span></span>
-<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a><span class="co">            except tensors are distributed to different devices.</span></span>
-<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="co">      """</span></span>
-<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>      <span class="bu">map</span> <span class="op">=</span> jax.tree_util.tree_map(</span>
-<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>              <span class="kw">lambda</span> x: TensorDistributor._move(x, random.choice(devices), </span>
-<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>                                                squeeze_first_axis),</span>
-<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>              params</span>
-<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>            )</span>
-<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="bu">map</span></span>
-<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> _move_greedy(<span class="va">self</span>, tensor, squeeze_first_axis<span class="op">=</span><span class="va">False</span>):</span>
-<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>    tensor_size <span class="op">=</span> tensor.nbytes</span>
-<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.capacities[<span class="va">self</span>.idx] <span class="op">&gt;=</span> tensor_size:</span>
-<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>      <span class="va">self</span>.capacities[<span class="va">self</span>.idx] <span class="op">-=</span> tensor_size</span>
-<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> TensorDistributor._move(tensor, <span class="va">self</span>.devices[<span class="va">self</span>.idx], </span>
-<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>                                     squeeze_first_axis)</span>
-<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># find a new device starting from the current device, allowing wrap-around</span></span>
-<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.idx<span class="op">-</span><span class="dv">1</span>, <span class="va">self</span>.idx<span class="op">-</span><span class="dv">1</span><span class="op">-</span><span class="bu">len</span>(<span class="va">self</span>.devices), <span class="op">-</span><span class="dv">1</span>):</span>
-<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">0</span>:</span>
-<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>        i <span class="op">+=</span> <span class="bu">len</span>(<span class="va">self</span>.devices) </span>
-<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> <span class="va">self</span>.capacities[i] <span class="op">&gt;=</span> tensor_size:</span>
-<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.idx <span class="op">=</span> i</span>
-<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.capacities[<span class="va">self</span>.idx] <span class="op">-=</span> tensor_size</span>
-<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> TensorDistributor._move(tensor, <span class="va">self</span>.devices[<span class="va">self</span>.idx],</span>
-<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>                                       squeeze_first_axis)</span>
-<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
-<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>      <span class="cf">raise</span> <span class="pp">Exception</span>((<span class="ss">f"Failed to allocate </span><span class="sc">{</span>tensor<span class="sc">.</span>nbytes<span class="sc">}</span><span class="ss"> bytes because the "</span></span>
-<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a>                       <span class="ss">f"devices have </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>capacities<span class="sc">}</span><span class="ss"> bytes free."</span>))</span>
-<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> greedily_distribute_tensors(<span class="va">self</span>,</span>
-<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a>      params: frozen_dict.FrozenDict,</span>
-<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a>      squeeze_first_axis<span class="op">=</span><span class="va">False</span></span>
-<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>  ):</span>
-<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>      <span class="co">"""Spreads all tensors in `params` across jax.devices() in device order, </span></span>
-<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a><span class="co">      respecting memory limits set forth by `self.capacity`.</span></span>
-<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a><span class="co">      </span></span>
-<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a><span class="co">      Args:</span></span>
-<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a><span class="co">          params (dict): Params dict for the network.</span></span>
-<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a><span class="co">      Returns:</span></span>
-<span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a><span class="co">          new_params: A dictionary identical to params in structure, except</span></span>
-<span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a><span class="co">            tensors are distributed to different devices.</span></span>
-<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a><span class="co">      """</span></span>
-<span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a>      </span>
-<span id="cb13-69"><a href="#cb13-69" aria-hidden="true" tabindex="-1"></a>      <span class="bu">map</span> <span class="op">=</span> jax.tree_util.tree_map(</span>
-<span id="cb13-70"><a href="#cb13-70" aria-hidden="true" tabindex="-1"></a>              <span class="kw">lambda</span> x: <span class="va">self</span>._move_greedy(x, squeeze_first_axis),</span>
-<span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a>              params</span>
-<span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a>            )</span>
-<span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="bu">map</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TensorDistributor:</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, devices, capacities):</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">len</span>(devices) <span class="op">&gt;=</span> <span class="dv">1</span>, <span class="st">"At least one device is needed."</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">assert</span> <span class="bu">len</span>(devices) <span class="op">==</span> <span class="bu">len</span>(capacities), <span class="st">"Devices and capacities must match."</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>.devices, <span class="va">self</span>.capacities <span class="op">=</span> devices, capacities</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="va">self</span>.idx <span class="op">=</span> <span class="bu">len</span>(devices)<span class="op">-</span><span class="dv">1</span> <span class="co"># index of current allocation device</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">@staticmethod</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> _move(tensor, device, squeeze_first_axis<span class="op">=</span><span class="va">False</span>):</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> jax.device_put_sharded([tensor], devices<span class="op">=</span>[device])</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> result[<span class="dv">0</span>] <span class="cf">if</span> squeeze_first_axis <span class="cf">else</span> result</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">@staticmethod</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> randomly_distribute_tensors(</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>      params: frozen_dict.FrozenDict,</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>      squeeze_first_axis<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>      devices<span class="op">=</span>jax.devices()</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>  ):</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>      <span class="co">"""Spreads all tensors in `params` across jax.devices() randomly</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a><span class="co">      </span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a><span class="co">      Args:</span></span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a><span class="co">          params (dict): Params dict for the network.</span></span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a><span class="co">      Returns:</span></span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a><span class="co">          new_params: A dictionary identical to params in structure, </span></span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a><span class="co">            except tensors are distributed to different devices.</span></span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a><span class="co">      """</span></span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>      <span class="bu">map</span> <span class="op">=</span> jax.tree_util.tree_map(</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>              <span class="kw">lambda</span> x: TensorDistributor._move(x, random.choice(devices), </span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>                                                squeeze_first_axis),</span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>              params</span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="bu">map</span></span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> _move_greedy(<span class="va">self</span>, tensor, squeeze_first_axis<span class="op">=</span><span class="va">False</span>):</span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>    tensor_size <span class="op">=</span> tensor.nbytes</span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="va">self</span>.capacities[<span class="va">self</span>.idx] <span class="op">&gt;=</span> tensor_size:</span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>      <span class="va">self</span>.capacities[<span class="va">self</span>.idx] <span class="op">-=</span> tensor_size</span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> TensorDistributor._move(tensor, <span class="va">self</span>.devices[<span class="va">self</span>.idx], </span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a>                                     squeeze_first_axis)</span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># find a new device starting from the current device, allowing wrap-around</span></span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="va">self</span>.idx<span class="op">-</span><span class="dv">1</span>, <span class="va">self</span>.idx<span class="op">-</span><span class="dv">1</span><span class="op">-</span><span class="bu">len</span>(<span class="va">self</span>.devices), <span class="op">-</span><span class="dv">1</span>):</span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">0</span>:</span>
+<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>        i <span class="op">+=</span> <span class="bu">len</span>(<span class="va">self</span>.devices) </span>
+<span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> <span class="va">self</span>.capacities[i] <span class="op">&gt;=</span> tensor_size:</span>
+<span id="cb14-47"><a href="#cb14-47" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.idx <span class="op">=</span> i</span>
+<span id="cb14-48"><a href="#cb14-48" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.capacities[<span class="va">self</span>.idx] <span class="op">-=</span> tensor_size</span>
+<span id="cb14-49"><a href="#cb14-49" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> TensorDistributor._move(tensor, <span class="va">self</span>.devices[<span class="va">self</span>.idx],</span>
+<span id="cb14-50"><a href="#cb14-50" aria-hidden="true" tabindex="-1"></a>                                       squeeze_first_axis)</span>
+<span id="cb14-51"><a href="#cb14-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb14-52"><a href="#cb14-52" aria-hidden="true" tabindex="-1"></a>      <span class="cf">raise</span> <span class="pp">Exception</span>((<span class="ss">f"Failed to allocate </span><span class="sc">{</span>tensor<span class="sc">.</span>nbytes<span class="sc">}</span><span class="ss"> bytes because the "</span></span>
+<span id="cb14-53"><a href="#cb14-53" aria-hidden="true" tabindex="-1"></a>                       <span class="ss">f"devices have </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>capacities<span class="sc">}</span><span class="ss"> bytes free."</span>))</span>
+<span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-55"><a href="#cb14-55" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> greedily_distribute_tensors(<span class="va">self</span>,</span>
+<span id="cb14-56"><a href="#cb14-56" aria-hidden="true" tabindex="-1"></a>      params: frozen_dict.FrozenDict,</span>
+<span id="cb14-57"><a href="#cb14-57" aria-hidden="true" tabindex="-1"></a>      squeeze_first_axis<span class="op">=</span><span class="va">False</span></span>
+<span id="cb14-58"><a href="#cb14-58" aria-hidden="true" tabindex="-1"></a>  ):</span>
+<span id="cb14-59"><a href="#cb14-59" aria-hidden="true" tabindex="-1"></a>      <span class="co">"""Spreads all tensors in `params` across jax.devices() in device order, </span></span>
+<span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a><span class="co">      respecting memory limits set forth by `self.capacity`.</span></span>
+<span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a><span class="co">      </span></span>
+<span id="cb14-62"><a href="#cb14-62" aria-hidden="true" tabindex="-1"></a><span class="co">      Args:</span></span>
+<span id="cb14-63"><a href="#cb14-63" aria-hidden="true" tabindex="-1"></a><span class="co">          params (dict): Params dict for the network.</span></span>
+<span id="cb14-64"><a href="#cb14-64" aria-hidden="true" tabindex="-1"></a><span class="co">      Returns:</span></span>
+<span id="cb14-65"><a href="#cb14-65" aria-hidden="true" tabindex="-1"></a><span class="co">          new_params: A dictionary identical to params in structure, except</span></span>
+<span id="cb14-66"><a href="#cb14-66" aria-hidden="true" tabindex="-1"></a><span class="co">            tensors are distributed to different devices.</span></span>
+<span id="cb14-67"><a href="#cb14-67" aria-hidden="true" tabindex="-1"></a><span class="co">      """</span></span>
+<span id="cb14-68"><a href="#cb14-68" aria-hidden="true" tabindex="-1"></a>      </span>
+<span id="cb14-69"><a href="#cb14-69" aria-hidden="true" tabindex="-1"></a>      <span class="bu">map</span> <span class="op">=</span> jax.tree_util.tree_map(</span>
+<span id="cb14-70"><a href="#cb14-70" aria-hidden="true" tabindex="-1"></a>              <span class="kw">lambda</span> x: <span class="va">self</span>._move_greedy(x, squeeze_first_axis),</span>
+<span id="cb14-71"><a href="#cb14-71" aria-hidden="true" tabindex="-1"></a>              params</span>
+<span id="cb14-72"><a href="#cb14-72" aria-hidden="true" tabindex="-1"></a>            )</span>
+<span id="cb14-73"><a href="#cb14-73" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span> <span class="bu">map</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <em>Disclaimer: Feel free to use TensorDistributor according to the MIT License. No warranties are implied.</em>
 </details>
 <p>We could have avoided defining <code>capacities</code> if we had a function that returns the free memory in bytes i.e.&nbsp;something like <code>torch.cuda.memory_reserved(0) - torch.cuda.memory_allocated(0)</code> but for TPUs in JAX. However, the only way I could find to check free memory usage in JAX is to <a href="https://jax.readthedocs.io/en/latest/device_memory_profiling.html">use a profiler</a> which only outputs <code>prof</code> files. Not a big deal since hard-coding capacities seems to be sufficient for the purpose, and also gives the user intentional control over limiting memory consumption per TPU.</p>

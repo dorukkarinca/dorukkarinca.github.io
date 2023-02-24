@@ -155,14 +155,14 @@ For personal convenicence, I cloned the weight repo (`runwayml/stable-diffusion-
 
 Most importantly, let's remove the model replication from the HuggingFace starter. After all, the goal is to get a large model to generate a single output as opposed to get a small model to produce multiple outputs.
 
-With all this in mind, here's the failing case that puts everything on one TPU device, exhausting TPU memory during the forward pass as shown earlier:
+With all this in mind, here's the error case that puts everything on one TPU device:
 
 <details>
   <summary>Code and output</summary>
 ```python
-# single image, jitted and everything on single TPU with safety checker
+# single image, non-jitted and everything on single TPU with safety checker
 
-# workaround for pip -e not working:
+# workaround for pip install -e not working:
 if "/content/drive/MyDrive/projects/diffusers/src" not in sys.path:
   sys.path.append("/content/drive/MyDrive/projects/diffusers/src")
 from diffusers import FlaxStableDiffusionPipeline
@@ -177,15 +177,14 @@ prompt = "A cinematic film still of Morgan Freeman starring as Jimi Hendrix, por
 prompt = [prompt] * 1
 prompt_ids = pipeline.prepare_inputs(prompt)
 
-p_params = replicate(params, devices=jax.devices()[2:3]) # replicate adds a leading (1, ...) on each tensor
-prompt_ids = prompt_ids.reshape((1, -1, *prompt_ids.shape[1:])) # fake shard(...)
+p_params = jax.tree_util.tree_map(lambda x: jax.device_put(x, jax.devices()[2]), params)
 
 def create_key(seed=0):
     return jax.random.PRNGKey(seed)
 rng = create_key(0)
 rng = jax.random.split(rng, 1)
 
-images = pipeline(prompt_ids, p_params, rng, jit=True)[0][0]
+images = pipeline(prompt_ids, p_params, rng, jit=False)[0]
 images = pipeline.numpy_to_pil(images)
 
 def image_grid(imgs, rows, cols):
@@ -198,8 +197,16 @@ image_grid(images, 1, 1)
 ```
 
 ```output
-XlaRuntimeError: RESOURCE_EXHAUSTED: Could not allocate 1024 bytes in memory 0x0x0_HBM0; 0 bytes allocatable, 0 
-bytes available
+Some weights of the model checkpoint at stable-diffusion-v1-5/text_encoder were not used when initializing FlaxCLIPTextModel: {('text_model', 'embeddings', 'position_ids')}
+- This IS expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Some weights of the model checkpoint at stable-diffusion-v1-5/safety_checker were not used when initializing FlaxStableDiffusionSafetyChecker: {('vision_model', 'vision_model', 'embeddings', 'position_ids')}
+- This IS expected if you are initializing FlaxStableDiffusionSafetyChecker from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing FlaxStableDiffusionSafetyChecker from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+pipeline loaded
+UnfilteredStackTrace: jaxlib.xla_extension.XlaRuntimeError: FAILED_PRECONDITION: Dependency failed: Dependency 
+failed: Timed out while waiting for dependency 671371:66613 to be resolved. This is usually due to a server restart
+and a stale client. Try restarting your client.
 ```
 </details>
 
@@ -209,9 +216,9 @@ If we keep everything the same but distribute the model instead, we are in good 
 <details>
   <summary>Code and output</summary>
 ```python
-# single image, jitted, greedily sharded
+# single image, non-jitted, greedily sharded with safety checker
 
-# workaround for pip -e not working:
+# workaround for pip install -e not working:
 if "/content/drive/MyDrive/projects/diffusers/src" not in sys.path:
   sys.path.append("/content/drive/MyDrive/projects/diffusers/src")
 from diffusers import FlaxStableDiffusionPipeline
@@ -220,23 +227,21 @@ dtype = jnp.bfloat16
 
 pipeline, params = FlaxStableDiffusionPipeline.from_pretrained(
     "stable-diffusion-v1-5", revision="flax", dtype=dtype, from_pt=True,
-    safety_checker=None
 )
 prompt = "A cinematic film still of Morgan Freeman starring as Jimi Hendrix, portrait, 40mm lens, shallow depth of field, close up, split lighting, cinematic"
 prompt = [prompt] * 1
 prompt_ids = pipeline.prepare_inputs(prompt)
 
-prompt_ids = prompt_ids.reshape((1, -1, *prompt_ids.shape[1:])) # fake shard(...)
-capacities = [4*1e9 for _ in range(len(jax.devices()[2:8]))] # I set it to 4 GB instead of 7.5 GB for extra safety and more aggressive sharding
+capacities = [3*1e9 for _ in range(len(jax.devices()[2:8]))]
 distributor = TensorDistributor(devices=jax.devices()[2:8], capacities=capacities)
-p_params = distributor.greedily_distribute_tensors(params, squeeze_first_axis=False) # the first axis aids in jitting
+p_params = distributor.greedily_distribute_tensors(params, squeeze_first_axis=True) # the first axis aids in jitting
 
 def create_key(seed=0):
     return jax.random.PRNGKey(seed)
 rng = create_key(0)
 rng = jax.random.split(rng, 1)
 
-images = pipeline(prompt_ids, p_params, rng, jit=True)[0][0]
+images = pipeline(prompt_ids, p_params, rng, jit=False)[0]
 images = pipeline.numpy_to_pil(images)
 
 def image_grid(imgs, rows, cols):
@@ -249,6 +254,14 @@ image_grid(images, 1, 1)
 ```
 
 Output:
+```output
+Some weights of the model checkpoint at stable-diffusion-v1-5/safety_checker were not used when initializing FlaxStableDiffusionSafetyChecker: {('vision_model', 'vision_model', 'embeddings', 'position_ids')}
+- This IS expected if you are initializing FlaxStableDiffusionSafetyChecker from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing FlaxStableDiffusionSafetyChecker from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Some weights of the model checkpoint at stable-diffusion-v1-5/text_encoder were not used when initializing FlaxCLIPTextModel: {('text_model', 'embeddings', 'position_ids')}
+- This IS expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing FlaxCLIPTextModel from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+```
 ![Stable diffusion output](assets/stable_diffusion_output_1.png)
 </details>
 
