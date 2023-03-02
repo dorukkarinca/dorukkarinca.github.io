@@ -4,7 +4,7 @@
     "href": "blog/2023-02-22-JAX-sharding.html",
     "title": "How to split a large model on Colab TPUs",
     "section": "",
-    "text": "Google Colab has been an amazing tool for trying out new ML ideas. While pipelines are written on PyTorch or TensorFlow with GPU support, I’ve been recently interested in Colab’s TPU accelerator offering and the JAX platform.\nColab offers 64 GiB of high-bandwidth memory with a TPUv2 version – a considerable jump in memory offering compared to Colab’s GPU instances. (More details about different TPU versions is available at Google Cloud.) Let’s see if we can run the full stable diffusion model by Runway with the HuggingFace backbone using the provided Jax + TPU support."
+    "text": "Google Colab has been an amazing tool for trying out new ML ideas. Recently, I’ve been checking out Colab’s TPU accelerator offering with the JAX platform and found out some really interesting stuff.\nColab offers 64 GiB of high-bandwidth memory with a TPUv2 version – a considerable jump in memory offering compared to Colab’s GPU instances. (More details about different TPU versions is available at Google Cloud.) Let’s see if we can run the full stable diffusion model by Runway with the HuggingFace backbone using the provided Jax + TPU support."
   },
   {
     "objectID": "blog/2023-02-22-JAX-sharding.html#getting-started",

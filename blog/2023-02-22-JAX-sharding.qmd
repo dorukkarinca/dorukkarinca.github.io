@@ -3,7 +3,7 @@ title: "How to split a large model on Colab TPUs"
 date: 2023-02-22
 ---
 
-Google Colab has been an amazing tool for trying out new ML ideas. While pipelines are written on PyTorch or TensorFlow with GPU support, I've been recently interested in Colab's TPU accelerator offering and the JAX platform.
+Google Colab has been an amazing tool for trying out new ML ideas. Recently, I've been checking out Colab's TPU accelerator offering with the JAX platform and found out some really interesting stuff.
 
 [Colab offers 64 GiB of high-bandwidth memory](https://jannik-zuern.medium.com/using-a-tpu-in-google-colab-54257328d7da#:~:text=While%20the%20Tesla%20K80%20available,High%20Bandwidth%20Memory%20(HBM).) with a [TPUv2](https://forums.fast.ai/t/google-colab-quitely-turn-on-tpu-v2-for-free-to-everyone/23329) version -- a considerable jump in memory offering compared to Colab's GPU instances. (More details about different TPU versions is available at [Google Cloud](https://cloud.google.com/tpu/docs/system-architecture-tpu-vm#tpu_v2).) Let's see if we can run the full [stable diffusion model by Runway](https://github.com/runwayml/stable-diffusion) with the [HuggingFace backbone](https://github.com/huggingface/diffusers) using the provided Jax + TPU support.
 
