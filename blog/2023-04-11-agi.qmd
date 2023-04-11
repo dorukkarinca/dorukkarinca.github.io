@@ -11,7 +11,7 @@ The Winograd schema is a series of questions whose answers are obvious to us but
 
 > The ball broke the table because it was made of styrofoam. What does "it" refer to?
 
-If you're wondering how GPT is doing with the styrofoam riddle, you can paste it on OpenAI Playground Chat though I'll save you a few clicks. Setting temperature to zero, GPT-3.5 incorrectly says the answer is "ball" whereas GPT-4 correctly says "table".
+If you're wondering how GPT is doing with the styrofoam riddle, you can paste it on OpenAI Playground Chat though I'll save you a few clicks. Setting temperature to zero, GPT-3.5 incorrectly says the answer is "ball" whereas GPT-4 correctly says "table". What a riddle!
 
 You can come up with your own Winograd tests, swap "styrofoam" with "steel" to see how the model is able to adapt, or just look at the GPT-4 whitepaper where OpenAI tells you that the average Winograd performance is rated at [87.5%](https://openai.com/research/gpt-4). While it's impressive that GPT-4 is able to perform at the 90th percentile at LSATs and bar exams, I find it more interesting that the performance is far from 100% for Winograd where the questions are much easier for you and me.
 
@@ -20,8 +20,7 @@ If this AI blunder surprised you, try to explain in your own words why the table
 - In general, styrofoam is more brittle than steel (or more brittle than the average material).
 - In general, things that are brittle tend to break.
 
-LLMs don't take these steps. How it works is akin to predictive text on a mobile keyboard: given the previous words in the sequence, it tries to come up with words that have high probability of occurring. As a result, GPT-3.5 gives you the incorrect answer because balls made out of styrofoam are somewhat more likely in the training data than tables made out of styrofoam. This makes sense; I can't remember the last time I saw a table made out of styrofoam, and neither can the model. It may be possible to *teach* the model the correct answer; in fact, we can already see that GPT-4 has corrected this mistake. However **our world is inundated with Winograd-like realities** and micro-facts that are constantly evolving and not always written down. So I doubt how scalable this solution will be.
-
+LLMs don't take these steps. How they work is akin to predictive text on a mobile keyboard: given the previous words in the sequence, they try to come up with words that have high probability of occurring. As a result, GPT-3.5 could be giving you the incorrect answer partly because balls made out of styrofoam are somewhat more likely in the training data than tables made out of styrofoam. This makes sense; I can't remember the last time I saw a table made out of styrofoam. It may be possible to *teach* the model the correct answer; in fact, we can already see that GPT-4 has corrected this mistake. However **our world is inundated with Winograd-like realities** and micro-facts that are constantly evolving and not always written down. So I doubt how scalable this solution will be.
 
 In contrast, look at the way *you* answered the Winograd question. You quickly came up with these two key facts, perhaps visualized the two scenarios, mentally swapping the materials, before reaching a deduction. A table made out of styrofoam is a very obscure thing to exist yet you got it right because it's the only explanation to the riddle. Had you been given a question that begs a much more obscure explanation, you still would be able to answer it correctly because your approach to the problem is correct and does something beyond word prediction: it involves **reasoning**.
 
