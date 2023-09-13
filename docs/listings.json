@@ -7,26 +7,6 @@
     ]
   },
   {
-    "listing": "/presentations.html",
-    "items": [
-      "/presentations/2021-03-05-sickle-cell-screening.html",
-      "/presentations/2020-08-24-sickle-cell-screening.html",
-      "/presentations/2020-05-11-automated-screening-of-sickle-cells.html",
-      "/presentations/2020-02-01-turbidity-analysis.html",
-      "/presentations/2019-10-16-rapid-and-automated-detection-of-nosema.html",
-      "/presentations/2019-10-16-water-quality-analysis.html",
-      "/presentations/2019-06-27-detection-of-nosema.html",
-      "/presentations/2019-06-27-field-portable-turbidity-reader.html",
-      "/presentations/2019-02-02-bee-parasite-detection.html",
-      "/presentations/2018-10-17-turbidity-measurement.html",
-      "/presentations/2018-05-22-presentation-bee-parasite-detection.html",
-      "/presentations/2018-05-14-presentation-bee-parasite-detection.html",
-      "/presentations/2017-05-24-presentation-automated-detection-sickle.html",
-      "/presentations/2017-05-24-presentation-smartphone-based-sickle.html",
-      "/presentations/2016-06-13-sickle-cell-detection.html"
-    ]
-  },
-  {
     "listing": "/publications.html",
     "items": [
       "/publications/2021-06-10-overcoming-difficulty-in-obtaining.html",
@@ -35,6 +15,26 @@
       "/publications/2020-05-22-automated-screening-of-sickle-cells.html",
       "/publications/2019-12-27-smartphone-based-turbidity-reader.html",
       "/publications/2019-01-28-nosema-ceranae-detection.html"
+    ]
+  },
+  {
+    "listing": "/presentations.html",
+    "items": [
+      "/presentations/2021-03-05-sickle-cell-screening.html",
+      "/presentations/2020-08-24-sickle-cell-screening.html",
+      "/presentations/2020-05-11-automated-screening-of-sickle-cells.html",
+      "/presentations/2020-02-01-turbidity-analysis.html",
+      "/presentations/2019-10-16-water-quality-analysis.html",
+      "/presentations/2019-10-16-rapid-and-automated-detection-of-nosema.html",
+      "/presentations/2019-06-27-field-portable-turbidity-reader.html",
+      "/presentations/2019-06-27-detection-of-nosema.html",
+      "/presentations/2019-02-02-bee-parasite-detection.html",
+      "/presentations/2018-10-17-turbidity-measurement.html",
+      "/presentations/2018-05-22-presentation-bee-parasite-detection.html",
+      "/presentations/2018-05-14-presentation-bee-parasite-detection.html",
+      "/presentations/2017-05-24-presentation-smartphone-based-sickle.html",
+      "/presentations/2017-05-24-presentation-automated-detection-sickle.html",
+      "/presentations/2016-06-13-sickle-cell-detection.html"
     ]
   }
 ]
